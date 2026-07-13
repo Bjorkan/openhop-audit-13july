@@ -1,0 +1,30 @@
+# BUG-031 — CONTACTS_START reports the filtered result count
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/frame_server/commands_contacts.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/frame_server/commands_contacts.py
+CURRENT SNAPSHOT (starting near cited line 36):
+------------------------------------------------------------------------------
+    async def _cmd_get_contacts(self, data: bytes) -> None:
+        since = struct.unpack("<I", data[:4])[0] if len(data) >= 4 else 0
+        contacts = self.bridge.get_contacts(since=since)
+        self._write_frame(bytes([RESP_CODE_CONTACTS_START]) + struct.pack("<I", len(contacts)))
+        for i, c in enumerate(contacts):
+            self._write_contact_frame(c)
+        most_recent = max((c.lastmod for c in contacts), default=0)
+        self._write_frame(bytes([RESP_CODE_END_OF_CONTACTS]) + struct.pack("<I", most_recent))
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+total_contacts = self.bridge.get_total_contact_count()
+self._write_contacts_start(total_contacts)
+for contact in self.bridge.iter_contacts_since(since_timestamp):
+    self._write_contact(contact)
+self._write_contacts_end(self.bridge.get_contact_watermark())

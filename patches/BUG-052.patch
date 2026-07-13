@@ -1,0 +1,63 @@
+# BUG-052 — Advert sends report success after failure and bypass the repeater engine
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Repeater: repeater/main.py
+# - OpenHop Repeater: repeater/web/api_endpoints.py
+
+==============================================================================
+FILE: OpenHop Repeater / repeater/main.py
+CURRENT SNAPSHOT (starting near cited line 1130):
+------------------------------------------------------------------------------
+    async def send_advert(self) -> bool:
+
+        if not self.dispatcher or not self.local_identity:
+            logger.error("Cannot send advert: dispatcher or identity not initialized")
+            return False
+
+        mode = self.config.get("repeater", {}).get("mode", "forward")
+        if mode == "no_tx":
+            logger.debug("Adverts disabled in no_tx mode")
+            return False
+
+        try:
+            from openhop_core.protocol import PacketBuilder
+            from openhop_core.protocol.constants import (
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+sent = await router.inject_packet(advert_packet, source="local-advert")
+if not sent:
+    logger.error("failed to transmit local advert")
+    return False
+return True
+
+==============================================================================
+FILE: OpenHop Repeater / repeater/web/api_endpoints.py
+CURRENT SNAPSHOT (starting near cited line 4978):
+------------------------------------------------------------------------------
+            )
+
+            if not self.daemon_instance or not self.daemon_instance.dispatcher:
+                logger.error("Cannot send advert: dispatcher not initialized")
+                return False
+
+            # Build flags - just use HAS_NAME for room servers
+            flags = ADVERT_FLAG_IS_ROOM_SERVER | ADVERT_FLAG_HAS_NAME
+
+            packet = PacketBuilder.create_advert(
+                local_identity=identity,
+                name=node_name,
+                lat=latitude,
+                lon=longitude,
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+sent = await repeater.send_advert()
+if not sent:
+    raise HTTPException(status_code=503, detail="advert transmission failed")
+return {"status": "sent"}

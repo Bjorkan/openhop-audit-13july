@@ -1,0 +1,41 @@
+# BUG-023 — Flood packets bypass MeshCore's reception-quality delay
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/node/dispatcher.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/node/dispatcher.py
+CURRENT SNAPSHOT (starting near cited line 373):
+------------------------------------------------------------------------------
+    async def _process_received_packet(
+        self,
+        data: bytes,
+        rssi: Optional[int] = None,
+        snr: Optional[float] = None,
+    ) -> None:
+        """Process received packet. rssi/snr are per-packet when provided."""
+        # Notify raw RX subscribers so clients can track repeats
+        if rssi is not None:
+            rssi_val = rssi
+        elif hasattr(self.radio, "get_last_rssi"):
+            rssi_val = self.radio.get_last_rssi()
+        else:
+            rssi_val = 0
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+score = self._calculate_reception_score(packet, rx_meta)
+delay_ms = min(MAX_FLOOD_DELAY_MS, self._score_to_delay_ms(score))
+key = packet.get_packet_hash()
+self.delayed_inbound.schedule_or_improve(
+    key=key,
+    packet=packet,
+    due_at=monotonic() + delay_ms / 1000.0,
+    score=score,
+)
+# A better duplicate replaces or cancels the worse scheduled copy.

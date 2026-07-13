@@ -1,0 +1,44 @@
+# BUG-062 — Payload handlers run before a direct packet reaches its final destination
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Repeater: repeater/packet_router.py
+
+==============================================================================
+FILE: OpenHop Repeater / repeater/packet_router.py
+CURRENT SNAPSHOT (starting near cited line 389):
+------------------------------------------------------------------------------
+    async def _route_packet(self, packet):
+
+        payload_type = packet.get_payload_type()
+        processed_by_injection = False
+        metadata = {
+            "rssi": getattr(packet, "rssi", 0),
+            "snr": getattr(packet, "snr", 0.0),
+            "timestamp": getattr(packet, "timestamp", 0),
+        }
+
+        # Route to specific handlers for parsing only
+        if payload_type == TraceHandler.payload_type():
+            # Locally injected TRACE requests are TX-only and re-enter the router so
+            # companion delivery can still happen. They are not inbound RF responses,
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+if packet.is_route_direct and packet.hop_count > 0:
+    if packet.payload_type == PAYLOAD_TYPE_TRACE:
+        await self.trace_helper.observe(packet)
+    elif packet.payload_type == PAYLOAD_TYPE_CONTROL:
+        await self.control_helper.try_handle(packet)
+    elif packet.payload_type == PAYLOAD_TYPE_ACK:
+        await self.ack_helper.observe_early(packet)
+    elif packet.is_multipart:
+        return await self.engine.forward_multipart(packet, rx_meta)
+    return await self.engine.forward_direct_next_hop(packet, rx_meta)
+
+# Only flood-local packets and final direct hops reach ordinary payload handlers.
+return await self._dispatch_local_payload(packet, rx_meta)

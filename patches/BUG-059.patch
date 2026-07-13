@@ -1,0 +1,65 @@
+# BUG-059 — Local one-byte identity collisions overwrite routing and persistence state
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Repeater: repeater/identity_manager.py
+# - OpenHop Repeater: repeater/main.py
+
+==============================================================================
+FILE: OpenHop Repeater / repeater/identity_manager.py
+CURRENT SNAPSHOT (starting near cited line 7):
+------------------------------------------------------------------------------
+class IdentityManager:
+    def __init__(self, config: dict):
+        self.config = config
+        self.identities: Dict[int, Tuple[Any, dict, str]] = {}
+        self.named_identities: Dict[str, Tuple[Any, dict, str]] = {}
+        self.registered_hashes: Dict[int, str] = {}
+
+    def register_identity(self, name: str, identity, config: dict, identity_type: str):
+        hash_byte = identity.get_public_key()[0]
+
+        if hash_byte in self.identities:
+            existing_name = self.registered_hashes.get(hash_byte, "unknown")
+            logger.error(
+                f"Hash collision! Identity '{name}' (hash=0x{hash_byte:02X}) "
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+def validate_unique_local_prefixes(identities) -> None:
+    by_prefix: dict[int, bytes] = {}
+    for identity in identities:
+        prefix = identity.public_key[0]
+        previous = by_prefix.get(prefix)
+        if previous is not None and previous != identity.public_key:
+            raise ValueError(f"local identity prefix collision: 0x{prefix:02x}")
+        by_prefix[prefix] = identity.public_key
+
+==============================================================================
+FILE: OpenHop Repeater / repeater/main.py
+CURRENT SNAPSHOT (starting near cited line 190):
+------------------------------------------------------------------------------
+            if not identity_key:
+                logger.error("No identity key found in configuration. Cannot init repeater.")
+                raise RuntimeError("Identity key is required for repeater operation")
+
+            local_identity = LocalIdentity(seed=identity_key)
+            self.local_identity = local_identity
+            self.dispatcher.local_identity = local_identity
+
+            pubkey = local_identity.get_public_key()
+            self.local_hash = pubkey[0]
+            self.local_hash_bytes = bytes(pubkey[:3])
+
+            logger.info(f"Local identity set: {local_identity.get_address_bytes().hex()}")
+            local_hash_hex = f"0x{self.local_hash:02x}"
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+all_local_identities = [repeater_identity, *configured_companion_identities]
+identity_manager.validate_unique_local_prefixes(all_local_identities)
+# Create helpers, databases and servers only after validation succeeds.

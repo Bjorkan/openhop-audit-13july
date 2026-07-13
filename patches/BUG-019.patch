@@ -1,0 +1,84 @@
+# BUG-019 — Synchronous text sends wait for the wrong ACK identifier
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/base_send.py
+# - OpenHop Core: src/openhop_core/companion/companion_radio.py
+# - OpenHop Core: src/openhop_core/node/dispatcher.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/base_send.py
+CURRENT SNAPSHOT (starting near cited line 367):
+------------------------------------------------------------------------------
+            pkt, ack_crc = PacketBuilder.create_text_message(
+                contact=proxy,
+                local_identity=self._identity,
+                message=text,
+                attempt=attempt,
+                message_type=msg_type,
+                txt_type=txt_type,
+                timestamp=timestamp,
+            )
+            self._apply_flood_scope(pkt)
+            self._apply_path_hash_mode(pkt)
+            effective_wait_ack = wait_for_ack and txt_type != TXT_TYPE_CLI_DATA
+            if txt_type != TXT_TYPE_CLI_DATA:
+                self._track_pending_ack(ack_crc)
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ack_crc = PacketUtils.calculate_ack_crc(packet)
+sent = await self._send_packet(
+    packet,
+    wait_for_ack=True,
+    expected_crc=ack_crc,
+)
+return SentResult(success=sent, expected_ack=ack_crc, timeout_ms=timeout_ms)
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/companion_radio.py
+CURRENT SNAPSHOT (starting near cited line 102):
+------------------------------------------------------------------------------
+    async def _send_packet(self, pkt: Packet, wait_for_ack: bool = False) -> bool:
+        """Send a packet via the MeshNode dispatcher."""
+        return await self.node.dispatcher.send_packet(pkt, wait_for_ack=wait_for_ack)
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+async def send_packet(self, packet, *, wait_for_ack=False, expected_crc=None):
+    return await self.dispatcher.send_packet(
+        packet,
+        wait_for_ack=wait_for_ack,
+        expected_crc=expected_crc,
+    )
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/node/dispatcher.py
+CURRENT SNAPSHOT (starting near cited line 597):
+------------------------------------------------------------------------------
+        # Set the expected CRC for ACK matching
+        if expected_crc is not None:
+            self._current_expected_crc = expected_crc
+        else:
+            self._current_expected_crc = packet.get_crc()
+
+        self._log(
+            f"Waiting for ACK with CRC {self._current_expected_crc:08X} (timeout: {ACK_TIMEOUT}s)"
+        )
+
+        try:
+            # Wait for the ACK using the event-based system
+            ack_received = await self.wait_for_ack(self._current_expected_crc, ACK_TIMEOUT)
+            if ack_received:
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+async def send_packet(self, packet, *, wait_for_ack=False, expected_crc=None):
+    waiter_crc = packet.get_crc() if expected_crc is None else expected_crc
+    waiter = self.ack_waiters.register(waiter_crc) if wait_for_ack else None
+    await self.radio.send(packet)
+    return await waiter if waiter is not None else True

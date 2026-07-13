@@ -1,0 +1,58 @@
+# BUG-046 — Companion send failures use the wrong error classes
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/frame_server/commands_device.py
+# - OpenHop Core: src/openhop_core/companion/frame_server/commands_messaging.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/frame_server/commands_device.py
+CURRENT SNAPSHOT (starting near cited line 117):
+------------------------------------------------------------------------------
+    async def _cmd_send_self_advert(self, data: bytes) -> None:
+        flood = len(data) >= 1 and data[0] == 1
+        ok = await self.bridge.advertise(flood=flood)
+        self._write_ok() if ok else self._write_err(ERR_CODE_BAD_STATE)
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+result = await self.bridge.perform_device_action(...)
+if result.reason is FailureReason.NOT_FOUND:
+    self._write_err(ERR_CODE_NOT_FOUND)
+elif result.reason in (FailureReason.ALLOCATION, FailureReason.TRANSMIT):
+    self._write_err(ERR_CODE_TABLE_FULL)
+elif result.reason is FailureReason.INVALID_STATE:
+    self._write_err(ERR_CODE_ILLEGAL_ARG)
+else:
+    self._write_ok()
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/frame_server/commands_messaging.py
+CURRENT SNAPSHOT (starting near cited line 147):
+------------------------------------------------------------------------------
+    async def _cmd_send_binary_req(self, data: bytes) -> None:
+        if len(data) < PUB_KEY_SIZE + 1:
+            self._write_err(ERR_CODE_ILLEGAL_ARG)
+            return
+        pubkey = data[:PUB_KEY_SIZE]
+        req_data = data[PUB_KEY_SIZE:]
+        send_binary_req = getattr(self.bridge, "send_binary_req", None)
+        if not send_binary_req:
+            self._write_err(ERR_CODE_UNSUPPORTED_CMD)
+            return
+        try:
+            result = await send_binary_req(pubkey, req_data)
+        except Exception as e:
+            logger.error("send_binary_req error: %s", e, exc_info=True)
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+result = await self.bridge.send_message(...)
+if not result.success:
+    self._write_err(map_failure_to_firmware_error(result.reason))
+    return
+self._write_sent(result.is_flood, result.tag, result.timeout_ms)

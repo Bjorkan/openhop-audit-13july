@@ -1,0 +1,67 @@
+# BUG-026 — Path discovery can remain direct after the contact is forced to flood
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/base_send.py
+# - OpenHop Core: src/openhop_core/companion/contact_store.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/base_send.py
+CURRENT SNAPSHOT (starting near cited line 285):
+------------------------------------------------------------------------------
+    async def send_path_discovery_req(self, pub_key: bytes) -> SentResult:
+        """Send path discovery (flood telemetry request with tag).
+
+        Returns SentResult for RESP_CODE_SENT. When path return arrives with
+        matching tag, path_discovery_response is fired (PUSH 0x8D).
+        """
+        contact = self.contacts.get_by_key(pub_key)
+        if not contact:
+            return SentResult(success=False)
+        # Resolve by exact public key, not name: two contacts can share a name
+        # (e.g. a re-keyed node) and get_by_name returns the first match, which
+        # would encrypt/route to the wrong key.
+        proxy = self.contacts.get_proxy_by_key(pub_key)
+        if not proxy:
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+packet, tag = PacketBuilder.create_protocol_request(
+    contact=contact,
+    local_identity=self._identity,
+    protocol_code=REQ_TYPE_GET_TELEMETRY_DATA,
+    data=request_data,
+    force_flood=True,
+)
+# Do not mutate the shared Contact merely to select a route.
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/contact_store.py
+CURRENT SNAPSHOT (starting near cited line 11):
+------------------------------------------------------------------------------
+class ContactProxy:
+    """Wraps a Contact to provide the interface expected by MeshNode handlers.
+
+    The existing handlers expect contacts with:
+    - public_key as a hex string (not bytes)
+    - name as a string
+    - out_path as a list
+    - type as an int
+    """
+
+    def __init__(self, contact: Contact):
+        self._contact = contact
+        self.public_key = contact.public_key.hex()
+        self.name = contact.name
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+def get_proxy_by_key(self, public_key: bytes) -> ContactProxy | None:
+    contact = self.get_by_key(public_key)
+    return ContactProxy.from_contact(contact) if contact is not None else None
+
+# Route overrides belong to the packet/send call, not persisted contact state.

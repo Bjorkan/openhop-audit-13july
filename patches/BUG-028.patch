@@ -1,0 +1,38 @@
+# BUG-028 — A zero-hop direct binary request is reported as flood
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/base_send.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/base_send.py
+CURRENT SNAPSHOT (starting near cited line 150):
+------------------------------------------------------------------------------
+            return SentResult(success=False)
+        # Resolve by exact public key, not name: two contacts can share a name
+        # (e.g. a re-keyed node) and get_by_name returns the first match, which
+        # would encrypt/route to the wrong key.
+        proxy = self.contacts.get_proxy_by_key(pub_key)
+        if not proxy:
+            return SentResult(success=False)
+        request_type = data[0] if len(data) >= 1 else 0
+        # C++ companion pattern (BaseChatMesh::sendRequest):
+        #   tag = getRTCClock()->getCurrentTimeUnique()
+        #   memcpy(temp, &tag, 4);  memcpy(&temp[4], req_data, data_len);
+        # create_protocol_request packs: timestamp(4) + protocol_code(1) + extra_data.
+        # The repeater echoes sender_timestamp (bytes 0-3) in the response.
+        # So the timestamp IS the tag — we capture it from create_protocol_request.
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+is_flood = path_len_encoded == OUT_PATH_UNKNOWN
+return SentResult(
+    success=success,
+    is_flood=is_flood,
+    expected_ack=request_tag,
+    timeout_ms=timeout_ms,
+)

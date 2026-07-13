@@ -1,0 +1,97 @@
+# BUG-037 — Offline queues can discard direct messages
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/message_queue.py
+# - OpenHop Repeater: repeater/data_acquisition/sqlite_handler.py
+# - OpenHop Repeater: repeater/companion/frame_server.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/message_queue.py
+CURRENT SNAPSHOT (starting near cited line 12):
+------------------------------------------------------------------------------
+class MessageQueue:
+    """Fixed-size offline message queue (FIFO).
+
+    Stores incoming messages that arrive when no consumer is actively
+    reading. Matches the firmware's offline_queue behaviour with a
+    configurable maximum size. When full, the oldest messages are
+    silently dropped (deque maxlen behaviour).
+    """
+
+    def __init__(self, max_size: int = DEFAULT_OFFLINE_QUEUE_SIZE):
+        self._queue: deque[QueuedMessage] = deque(maxlen=max_size)
+        self._max_size = max_size
+
+    @property
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+def push(self, message: QueuedMessage) -> bool:
+    if len(self._messages) >= self.capacity:
+        channel_index = next((i for i, item in enumerate(self._messages) if item.is_channel), None)
+        if channel_index is None:
+            return False
+        del self._messages[channel_index]
+    self._messages.append(message)
+    return True
+
+==============================================================================
+FILE: OpenHop Repeater / repeater/data_acquisition/sqlite_handler.py
+CURRENT SNAPSHOT (starting near cited line 2666):
+------------------------------------------------------------------------------
+    def companion_push_message(
+        self, companion_hash: str, msg: Dict, max_messages: Optional[int] = None
+    ) -> bool:
+        """Append a message to the companion's queue.
+
+        Deduplicates by (companion_hash, packet_hash) using INSERT OR IGNORE
+        backed by the UNIQUE index added in migration 8.  This replaces the
+        previous SELECT + INSERT round-trip (two statements, two SD-card reads)
+        with a single atomic statement.
+
+        When ``max_messages`` is set, the oldest rows beyond that retention limit
+        are trimmed after a successful insert (power-user ``offline_queue_size``).
+
+        Returns True if inserted, False if the message was a duplicate (skipped).
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+with self.connection:
+    if self._queue_count(companion_id) >= capacity:
+        deleted = self._delete_oldest_channel_message(companion_id)
+        if not deleted:
+            return False
+    self._insert_companion_message(companion_id, message)
+return True
+
+==============================================================================
+FILE: OpenHop Repeater / repeater/companion/frame_server.py
+CURRENT SNAPSHOT (starting near cited line 52):
+------------------------------------------------------------------------------
+            stats_getter=stats_getter,
+            control_handler=control_handler,
+        )
+        self.sqlite_handler = sqlite_handler
+
+    # -----------------------------------------------------------------
+    # Persistence hook overrides
+    # -----------------------------------------------------------------
+
+    async def _persist_companion_message(self, msg_dict: dict) -> None:
+        """Persist message to SQLite and pop from bridge queue.
+
+        The bridge's ``offline_queue_size`` (``message_queue._max_size``) doubles
+        as the SQLite retention limit: 0 disables offline storage entirely, so the
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+persisted = self.sqlite.push_companion_message(self.companion_id, message)
+if not persisted:
+    logger.warning("offline queue full; direct message was not discarded")
+    return False
+return True

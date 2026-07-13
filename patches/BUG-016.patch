@@ -1,0 +1,37 @@
+# BUG-016 — Group messages are suppressed when a peer shares the local display name
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/node/handlers/group_text.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/node/handlers/group_text.py
+CURRENT SNAPSHOT (starting near cited line 250):
+------------------------------------------------------------------------------
+            # Parse the decrypted message
+            parsed_message = self._parse_plaintext_message(plaintext)
+            if not parsed_message:
+                self.log("Failed to parse decrypted message")
+                return
+
+            # Extract sender and message from the content
+            sender_name, message_body = self._extract_sender_from_message(parsed_message["content"])
+
+            # Store the message content in the packet for echo detection
+            # Use the existing decrypted dictionary to store our data
+            packet.decrypted["group_text_data"] = {
+                "text": message_body,
+                "sender_name": sender_name,
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Do not suppress a packet because its text begins with the local display name.
+packet_id = packet.get_packet_hash()
+if self.recent_local_group_packets.contains(packet_id):
+    return HandlerResult.handled_echo()
+self.recent_local_group_packets.expire_old(monotonic())
+return self._deliver_group_message(packet, message)

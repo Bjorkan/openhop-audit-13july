@@ -1,0 +1,87 @@
+# BUG-049 — Maximum-length valid direct paths are rejected
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/node/dispatcher.py
+# - OpenHop Core: src/openhop_core/protocol/packet_utils.py
+# - OpenHop Repeater: repeater/engine.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/node/dispatcher.py
+CURRENT SNAPSHOT (starting near cited line 408):
+------------------------------------------------------------------------------
+        # Parse before dedup — calculate_packet_hash() needs a parsed packet
+        pkt = Packet()
+        try:
+            pkt.read_from(data)
+        except Exception as err:
+            self._log(f"Malformed packet: {err}")
+            self.packet_filter.blacklist(raw_hash)
+            self._log(f"Blacklisted malformed packet (raw hash: {raw_hash})")
+            return
+
+        # Packets at max hops for their path encoding must not be retransmitted
+        if PathUtils.is_path_at_max_hops(pkt.path_len):
+            pkt.mark_do_not_retransmit()
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Generic validation accepts any encoded path whose byte length is <= 64.
+if PathUtils.get_path_byte_len(packet.path_len) > MAX_PATH_SIZE:
+    return DispatchResult.invalid_path()
+# Capacity is checked only immediately before appending a flood hop.
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/protocol/packet_utils.py
+CURRENT SNAPSHOT (starting near cited line 146):
+------------------------------------------------------------------------------
+    def is_valid_path_len(path_len_byte: int) -> bool:
+        """Validate an encoded path_len byte.
+
+        Path length in bytes must never exceed MAX_PATH_SIZE (64): at most 64
+        one-byte hops, 32 two-byte hops, or 21 three-byte hops. Returns False
+        for hash_size == 4 (reserved) or if the total path bytes would exceed
+        MAX_PATH_SIZE.
+        """
+        hash_size = (path_len_byte >> PATH_HASH_SIZE_SHIFT) + 1
+        if hash_size > 3:
+            return False
+        hash_count = path_len_byte & PATH_HASH_COUNT_MASK
+        return hash_count * hash_size <= MAX_PATH_SIZE
+
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+@staticmethod
+def can_append_path_hash(packet) -> bool:
+    return PathUtils.get_path_byte_len(packet.path_len) + packet.path_hash_size <= MAX_PATH_SIZE
+
+==============================================================================
+FILE: OpenHop Repeater / repeater/engine.py
+CURRENT SNAPSHOT (starting near cited line 768):
+------------------------------------------------------------------------------
+    def validate_packet(self, packet: Packet) -> Tuple[bool, str]:
+
+        if not packet or not packet.payload:
+            return False, "Empty payload"
+
+        if len(packet.path or []) >= MAX_PATH_SIZE:
+            return (
+                False,
+                f"Path length {len(packet.path or [])} exceeds MAX_PATH_SIZE ({MAX_PATH_SIZE})",
+            )
+
+        return True, ""
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+path_bytes = PathUtils.get_path_byte_len(packet.path_len)
+if path_bytes > MAX_PATH_SIZE:
+    return False
+if packet.is_route_flood and path_bytes + packet.path_hash_size > MAX_PATH_SIZE:
+    return False
+# Direct forwarding removes the first hop and is valid at exactly 64 bytes.

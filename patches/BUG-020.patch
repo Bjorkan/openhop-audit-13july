@@ -1,0 +1,38 @@
+# BUG-020 — PATH ACK decryption tries only one colliding contact
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/node/handlers/ack.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/node/handlers/ack.py
+CURRENT SNAPSHOT (starting near cited line 102):
+------------------------------------------------------------------------------
+            # dest_hash = payload[0]  # Not currently used
+            src_hash = payload[1]
+
+            # Find contact for decryption
+            contact = await self.dispatcher._find_contact_by_hash(src_hash)
+            if not contact:
+                return None
+
+            from ...protocol import CryptoUtils, Identity
+
+            peer_id = Identity(bytes.fromhex(contact.public_key))
+            shared_secret = peer_id.calc_shared_secret(
+                self.dispatcher.local_identity.get_private_key()
+            )
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+for contact in self.contacts.find_all_by_prefix(source_prefix):
+    plaintext = try_decrypt_and_verify_ack(packet, contact, self.local_identity)
+    if plaintext is None:
+        continue
+    self._apply_ack(contact.public_key, plaintext)
+    return HandlerResult.authenticated(contact.public_key)
+return HandlerResult.not_for_us()

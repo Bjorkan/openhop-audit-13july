@@ -1,0 +1,30 @@
+# BUG-039 — SEND_CONFIRMED always reports zero trip time
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/frame_server/push.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/frame_server/push.py
+CURRENT SNAPSHOT (starting near cited line 139):
+------------------------------------------------------------------------------
+    def _on_send_confirmed(self, crc):
+        data = struct.pack(
+            "<B4sI",
+            PUSH_CODE_SEND_CONFIRMED,
+            struct.pack("<I", crc)[:4],
+            0,
+        )
+        self._enqueue_frame(data)
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+sent_at = self.pending_acks.pop(ack_crc, None)
+if sent_at is None:
+    return
+trip_time_ms = int((monotonic() - sent_at) * 1000) & 0xFFFFFFFF
+self.write_send_confirmed(ack_crc=ack_crc, trip_time_ms=trip_time_ms)

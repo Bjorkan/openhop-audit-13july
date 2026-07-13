@@ -1,0 +1,139 @@
+# BUG-060 — The SQLite queue loses binary payload, signed sender, and signal metadata
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/frame_server/push.py
+# - OpenHop Core: src/openhop_core/companion/frame_server/commands_messaging.py
+# - OpenHop Repeater: repeater/companion/frame_server.py
+# - OpenHop Repeater: repeater/data_acquisition/sqlite_handler.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/frame_server/push.py
+CURRENT SNAPSHOT (starting near cited line 59):
+------------------------------------------------------------------------------
+        self,
+        sender_key,
+        text,
+        timestamp,
+        txt_type,
+        packet_hash=None,
+        snr=None,
+        rssi=None,
+        sender_prefix=b"",
+    ):
+        msg_dict = {
+            "sender_key": sender_key,
+            "text": text,
+            "timestamp": timestamp,
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+queued = QueuedMessage(
+    kind=kind,
+    payload=bytes(payload),
+    sender_public_key=sender_public_key,
+    signed_sender_public_key=signed_sender_public_key,
+    channel_index=channel_index,
+    path_len=path_len,
+    route_type=route_type,
+    rssi=rssi,
+    snr=snr,
+    timestamp=timestamp,
+)
+return self.message_queue.push(queued)
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/frame_server/commands_messaging.py
+CURRENT SNAPSHOT (starting near cited line 284):
+------------------------------------------------------------------------------
+
+    def _build_message_frame(self, msg: "QueuedMessage") -> bytes:
+        """Encode a QueuedMessage into a response frame (shared by base and subclasses)."""
+        snr_byte = max(-128, min(127, int(round(getattr(msg, "snr", 0) * 4))))
+        if snr_byte < 0:
+            snr_byte += 256
+        if msg.is_channel:
+            path_len_byte = msg.path_len if msg.path_len < 256 else 0xFF
+            if getattr(msg, "channel_data_type", 0):
+                payload = bytes(getattr(msg, "channel_data_payload", b"") or b"")
+                payload = payload[:MAX_CHANNEL_DATA_LENGTH]
+                return (
+                    bytes(
+                        [
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+message = await self.message_queue.pop()
+if message is None:
+    self._write_messages_waiting(0)
+    return
+self._write_queued_message(message)  # serialize every QueuedMessage field by kind
+
+==============================================================================
+FILE: OpenHop Repeater / repeater/companion/frame_server.py
+CURRENT SNAPSHOT (starting near cited line 61):
+------------------------------------------------------------------------------
+    async def _persist_companion_message(self, msg_dict: dict) -> None:
+        """Persist message to SQLite and pop from bridge queue.
+
+        The bridge's ``offline_queue_size`` (``message_queue._max_size``) doubles
+        as the SQLite retention limit: 0 disables offline storage entirely, so the
+        message is dropped instead of persisted.
+        """
+        if not self.sqlite_handler:
+            return
+        retention = getattr(self.bridge.message_queue, "_max_size", None)
+        if retention == 0:
+            self.bridge.message_queue.pop_last()
+            return
+        await asyncio.to_thread(
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+persist_result = self.sqlite.insert_companion_message(self.companion_id, message)
+if persist_result is PersistResult.FAILED:
+    return False
+if persist_result in (PersistResult.INSERTED, PersistResult.DUPLICATE):
+    self.memory_queue.remove(message.id)
+return True
+
+==============================================================================
+FILE: OpenHop Repeater / repeater/data_acquisition/sqlite_handler.py
+CURRENT SNAPSHOT (starting near cited line 2666):
+------------------------------------------------------------------------------
+    def companion_push_message(
+        self, companion_hash: str, msg: Dict, max_messages: Optional[int] = None
+    ) -> bool:
+        """Append a message to the companion's queue.
+
+        Deduplicates by (companion_hash, packet_hash) using INSERT OR IGNORE
+        backed by the UNIQUE index added in migration 8.  This replaces the
+        previous SELECT + INSERT round-trip (two statements, two SD-card reads)
+        with a single atomic statement.
+
+        When ``max_messages`` is set, the oldest rows beyond that retention limit
+        are trimmed after a successful insert (power-user ``offline_queue_size``).
+
+        Returns True if inserted, False if the message was a duplicate (skipped).
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+CREATE TABLE companion_messages (
+    id TEXT PRIMARY KEY,
+    companion_id TEXT NOT NULL,
+    kind INTEGER NOT NULL,
+    payload BLOB NOT NULL,
+    sender_public_key BLOB,
+    signed_sender_public_key BLOB,
+    channel_index INTEGER,
+    path_len INTEGER,
+    route_type INTEGER,
+    rssi INTEGER,
+    snr REAL,
+    timestamp INTEGER NOT NULL
+)
+# INSERT, SELECT and reconstruction must include the same complete field set.

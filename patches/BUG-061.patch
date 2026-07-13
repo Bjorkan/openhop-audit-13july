@@ -1,0 +1,67 @@
+# BUG-061 — GRP_DATA and RAW_CUSTOM are not delivered to companion bridges
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/companion_bridge.py
+# - OpenHop Repeater: repeater/packet_router.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/companion_bridge.py
+CURRENT SNAPSHOT (starting near cited line 140):
+------------------------------------------------------------------------------
+# Raw custom payload handler: fires raw_data_received (PUSH 0x84)
+# ---------------------------------------------------------------------------
+
+
+class _RawCustomHandler:
+    """Handles PAYLOAD_TYPE_RAW_CUSTOM packets; fires raw_data_received(payload, snr, rssi)."""
+
+    def __init__(self, bridge: "CompanionBridge") -> None:
+        self._bridge = bridge
+
+    @staticmethod
+    def payload_type() -> int:
+        return PAYLOAD_TYPE_RAW_CUSTOM
+
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+if packet.payload_type == PAYLOAD_TYPE_GRP_DATA:
+    for companion in self.companions:
+        await companion.try_deliver_group_data(packet)
+    return LocalDelivery.DELIVERED_AND_FORWARD
+
+if packet.payload_type == PAYLOAD_TYPE_RAW_CUSTOM and packet.is_local_destination:
+    await self._fan_out_raw_custom(packet)
+    return LocalDelivery.DELIVERED_AND_FORWARD
+
+==============================================================================
+FILE: OpenHop Repeater / repeater/packet_router.py
+CURRENT SNAPSHOT (starting near cited line 389):
+------------------------------------------------------------------------------
+    async def _route_packet(self, packet):
+
+        payload_type = packet.get_payload_type()
+        processed_by_injection = False
+        metadata = {
+            "rssi": getattr(packet, "rssi", 0),
+            "snr": getattr(packet, "snr", 0.0),
+            "timestamp": getattr(packet, "timestamp", 0),
+        }
+
+        # Route to specific handlers for parsing only
+        if payload_type == TraceHandler.payload_type():
+            # Locally injected TRACE requests are TX-only and re-enter the router so
+            # companion delivery can still happen. They are not inbound RF responses,
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+local_delivery = await self.companion_bridge.deliver_route_aware(packet)
+if local_delivery is LocalDelivery.CONSUMED:
+    return RouteResult(consumed=True, retransmit=False)
+# DELIVERED_AND_FORWARD continues through the normal MeshCore forwarding path.
+return await self.engine.handle_packet(packet)

@@ -1,0 +1,61 @@
+# BUG-001 — Advert application data exceeds the MeshCore limit
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/protocol/constants.py
+# - OpenHop Core: src/openhop_core/protocol/packet_builder.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/protocol/constants.py
+CURRENT SNAPSHOT (starting near cited line 41):
+------------------------------------------------------------------------------
+PAYLOAD_VER_1 = 0x00  # Currently supported
+PAYLOAD_VER_2 = 0x01  # Reserved for future use
+PAYLOAD_VER_3 = 0x02  # Reserved for future use
+PAYLOAD_VER_4 = 0x03  # Reserved for future use
+MAX_SUPPORTED_PAYLOAD_VERSION = PAYLOAD_VER_2  # Accept versions 0-1
+
+# ---------------------------------------------------------------------------
+# Misc sizes
+# ---------------------------------------------------------------------------
+MAX_ADVERT_DATA_SIZE = 96
+PUB_KEY_SIZE = 32
+SIGNATURE_SIZE = 64
+PATH_HASH_SIZE = 1  # Legacy default; see PathUtils for multi-byte path support
+PATH_HASH_COUNT_MASK = 0x3F  # bits 0-5 of encoded path_len (max encodable hop count)
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+MAX_ADVERT_DATA_SIZE = 32
+PUB_KEY_SIZE = 32
+SIGNATURE_SIZE = 64
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/protocol/packet_builder.py
+CURRENT SNAPSHOT (starting near cited line 165):
+------------------------------------------------------------------------------
+    def _encode_advert_data(
+        name: str,
+        lat: float = 0.0,
+        lon: float = 0.0,
+        feature1: int = 0,
+        feature2: int = 0,
+        flags: int = 0,
+    ) -> bytes:
+        """Encodes advertisement metadata including location and features."""
+        buf = bytearray()
+
+        # Set flags based on what data is provided
+        final_flags = flags
+        if lat != 0.0 or lon != 0.0:
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+name_bytes = name.encode("utf-8")
+if len(buf) + len(name_bytes) > MAX_ADVERT_DATA_SIZE:
+    raise ValueError("advert application data exceeds 32 bytes")
+buf += name_bytes

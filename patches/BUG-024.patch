@@ -1,0 +1,38 @@
+# BUG-024 — Server-side REQ replay protection is absent
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/node/handlers/protocol_request.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/node/handlers/protocol_request.py
+CURRENT SNAPSHOT (starting near cited line 120):
+------------------------------------------------------------------------------
+                plaintext = candidate_plaintext
+                break
+
+            if client is None or shared_secret is None or plaintext is None:
+                if decrypt_attempted == 0:
+                    self.log(f"No shared secret for client 0x{src_hash:02X}")
+                else:
+                    self.log(
+                        f"Failed to decrypt REQ for all {decrypt_attempted} candidate(s) "
+                        f"with src hash 0x{src_hash:02X}"
+                    )
+                return None
+
+            # Parse request
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+client_key = authenticated_contact.public_key
+request_timestamp = int.from_bytes(plaintext[:4], "little")
+last_timestamp = self.last_request_timestamp.get(client_key)
+if last_timestamp is not None and request_timestamp <= last_timestamp:
+    return HandlerResult.rejected("replayed request")
+self.last_request_timestamp[client_key] = request_timestamp
+return await self._dispatch_authenticated_request(authenticated_contact, plaintext[4:])

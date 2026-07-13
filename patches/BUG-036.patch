@@ -1,0 +1,40 @@
+# BUG-036 — Incoming direct-message path metadata is hardcoded to zero
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/base_events.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/base_events.py
+CURRENT SNAPSHOT (starting near cited line 71):
+------------------------------------------------------------------------------
+    async def _handle_new_message(self, data: dict) -> None:
+        # Deduplicate by packet hash so reconnects don't queue the same packet multiple times.
+        pkt_hash = data.get("packet_hash")
+        if pkt_hash and self._seen_txt.check_and_add(pkt_hash):
+            return
+
+        sender_key_hex = data.get("contact_pubkey", "")
+        sender_key = bytes.fromhex(sender_key_hex) if sender_key_hex else b""
+        # Handler publishes "message_text"; accept "text" for compatibility
+        message_text = (data.get("message_text") or data.get("text") or "").rstrip("\x00")
+        # Extract SNR/RSSI from network info if available (same as channel path)
+        network_info = data.get("network_info", {})
+        snr = network_info.get("snr")
+        rssi = network_info.get("rssi")
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+path_len = OUT_PATH_UNKNOWN if message.is_flood else message.packet_path_len
+queued = QueuedMessage(
+    kind=message.kind,
+    sender=message.sender,
+    payload=message.payload,
+    path_len=path_len,
+    route_type=message.route_type,
+    timestamp=message.timestamp,
+)

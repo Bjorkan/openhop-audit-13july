@@ -1,0 +1,123 @@
+# BUG-048 — LoRa airtime calculations use incompatible coding-rate representations
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/timing.py
+# - OpenHop Core: src/openhop_core/protocol/packet_utils.py
+# - OpenHop Core: src/openhop_core/hardware/sx1262_wrapper.py
+# - OpenHop Core: src/openhop_core/hardware/lora/LoRaRF/SX126x.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/timing.py
+CURRENT SNAPSHOT (starting near cited line 36):
+------------------------------------------------------------------------------
+def estimate_airtime_ms(
+    packet_length: int,
+    sf: int,
+    bw_hz: int,
+    cr: int,
+    preamble_symbols: int = 8,
+    low_dr_opt: bool = None,
+) -> float:
+    """Estimate LoRa airtime (ms) for a packet, per the Semtech formula.
+
+    Mirrors ``SX1262Wrapper`` airtime math: explicit header, CRC on. ``cr`` is
+    the MeshCore coding-rate index (1->4/5 .. 4->4/8). ``packet_length`` is the
+    full on-air byte length (use ``Packet.get_raw_length()``).
+    """
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+def normalize_coding_rate(protocol_value: int) -> int:
+    if protocol_value not in (5, 6, 7, 8):
+        raise ValueError("coding rate must be 5..8")
+    return protocol_value - 4  # formula index 1..4
+
+def estimate_lora_airtime_ms(params, payload_len: int) -> float:
+    cr_index = normalize_coding_rate(params.coding_rate)
+    return semtech_airtime_ms(
+        sf=params.spreading_factor,
+        bandwidth_hz=params.bandwidth_hz,
+        cr_index=cr_index,
+        preamble_symbols=params.preamble_symbols,
+        payload_len=payload_len,
+        explicit_header=True,
+        crc=True,
+    )
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/protocol/packet_utils.py
+CURRENT SNAPSHOT (starting near cited line 364):
+------------------------------------------------------------------------------
+    def estimate_airtime_ms(packet_length_bytes: int, radio_config: dict = None) -> float:
+        """
+        Estimate LoRa packet airtime in milliseconds based on packet size and radio parameters.
+
+        Args:
+            packet_length_bytes: Total packet length including headers
+            radio_config: Radio configuration dict with spreading_factor, bandwidth, etc.
+                         Can include 'measured_airtime_ms' for actual measured value
+
+        Returns:
+            Estimated airtime in milliseconds
+        """
+        if radio_config is None:
+            radio_config = {
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+return timing.estimate_lora_airtime_ms(radio_params, packet.get_raw_length())
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/hardware/sx1262_wrapper.py
+CURRENT SNAPSHOT (starting near cited line 919):
+------------------------------------------------------------------------------
+    def _calculate_tx_timeout(self, packet_length: int) -> tuple[int, int]:
+        """
+        Calculate the LoRa packet airtime and transmission timeout using the standard
+        Semtech formula.
+
+        This method implements the LoRa airtime calculation as described in the Semtech
+        LoRa Modem Designer's Guide (AN1200.13, section 4.1), taking into account the
+        following parameters:
+            - Spreading Factor (SF)
+            - Bandwidth (BW)
+            - Coding Rate (CR)
+            - Preamble length
+            - Explicit/implicit header mode (always explicit here)
+            - CRC enabled (always enabled here)
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+self.coding_rate = protocol_coding_rate  # 5..8 externally
+self.radio.set_coding_rate(self.coding_rate - 4)  # driver expects 1..4
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/hardware/lora/LoRaRF/SX126x.py
+CURRENT SNAPSHOT (starting near cited line 691):
+------------------------------------------------------------------------------
+    def setLoRaModulation(self, sf: int, bw: int, cr: int, ldro: bool = False):
+        self._sf = sf
+        self._bw = bw
+        self._cr = cr
+        self._ldro = ldro
+
+        # valid spreading factor is between 5 and 12
+        if sf > 12:
+            sf = 12
+        elif sf < 5:
+            sf = 5
+        # select bandwidth options
+        if bw < 9100:
+            bw = self.BW_7800
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+def set_coding_rate(self, cr_index: int) -> None:
+    if cr_index not in (1, 2, 3, 4):
+        raise ValueError("driver coding-rate index must be 1..4")
+    self._coding_rate_index = cr_index

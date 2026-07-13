@@ -1,0 +1,54 @@
+# BUG-042 — Disabled private-key import is acknowledged as successful
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/frame_server/commands_device.py
+# - OpenHop Repeater: repeater/identity_manager.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/frame_server/commands_device.py
+CURRENT SNAPSHOT (starting near cited line 327):
+------------------------------------------------------------------------------
+    async def _cmd_import_private_key(self, data: bytes) -> None:
+        """Stub/no-op: private key is set from config; dynamic import may be supported later."""
+        self._write_ok()
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+if not self.bridge.capabilities.identity_import:
+    self._write_err(ERR_CODE_UNSUPPORTED_CMD)
+    return
+result = await self.bridge.import_private_key(data)
+self._write_ok() if result else self._write_err(ERR_CODE_ILLEGAL_ARG)
+
+==============================================================================
+FILE: OpenHop Repeater / repeater/identity_manager.py
+CURRENT SNAPSHOT (starting near cited line 9):
+------------------------------------------------------------------------------
+        self.config = config
+        self.identities: Dict[int, Tuple[Any, dict, str]] = {}
+        self.named_identities: Dict[str, Tuple[Any, dict, str]] = {}
+        self.registered_hashes: Dict[int, str] = {}
+
+    def register_identity(self, name: str, identity, config: dict, identity_type: str):
+        hash_byte = identity.get_public_key()[0]
+
+        if hash_byte in self.identities:
+            existing_name = self.registered_hashes.get(hash_byte, "unknown")
+            logger.error(
+                f"Hash collision! Identity '{name}' (hash=0x{hash_byte:02X}) "
+                f"conflicts with existing identity '{existing_name}'"
+            )
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+@property
+def supports_identity_import(self) -> bool:
+    return False
+
+async def import_private_key(self, _key: bytes) -> bool:
+    raise UnsupportedOperation("remote identity import is disabled for repeater companions")

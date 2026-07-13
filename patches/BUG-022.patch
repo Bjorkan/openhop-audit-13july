@@ -1,0 +1,71 @@
+# BUG-022 — Multipart packets and routed ACKs lack their special forwarding paths
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Repeater: repeater/packet_router.py
+# - OpenHop Repeater: repeater/engine.py
+
+==============================================================================
+FILE: OpenHop Repeater / repeater/packet_router.py
+CURRENT SNAPSHOT (starting near cited line 458):
+------------------------------------------------------------------------------
+            elif self.daemon.login_helper:
+                handled = await self.daemon.login_helper.process_login_packet(packet)
+                if handled:
+                    processed_by_injection = True
+            if processed_by_injection:
+                self._record_for_ui(packet, metadata)
+
+        elif payload_type == AckHandler.payload_type():
+            # ACK has no dest in payload (4-byte CRC only); deliver to all bridges so sender sees send_confirmed.
+            # Do not set processed_by_injection so packet also reaches engine for DIRECT forwarding when we're a middle hop.
+            companion_bridges = self._companion_bridges_for_packet(packet, metadata)
+            for bridge in companion_bridges.values():
+                try:
+                    await bridge.process_received_packet(packet)
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+if packet.is_multipart:
+    return await self.engine.forward_multipart(packet, rx_meta)
+
+if packet.is_route_direct and packet.payload_type == PAYLOAD_TYPE_ACK:
+    return await self.engine.forward_routed_ack(packet, rx_meta)
+
+return await self.engine.handle_standard_packet(packet, rx_meta)
+
+==============================================================================
+FILE: OpenHop Repeater / repeater/engine.py
+CURRENT SNAPSHOT (starting near cited line 980):
+------------------------------------------------------------------------------
+    def direct_forward(self, packet: Packet, packet_hash: Optional[str] = None) -> Optional[Packet]:
+        """Forward a DIRECT packet, removing the first hop from the path.
+
+        INVARIANT: purely synchronous — no await points.  The is_duplicate +
+        mark_seen pair is atomic within the asyncio event loop.  Do NOT add any
+        await here without revisiting that invariant in __call__ / process_packet.
+        """
+        # Validate packet (empty payload, oversized path, etc.)
+        valid, reason = self.validate_packet(packet)
+        if not valid:
+            packet.drop_reason = reason
+            return None
+
+        # Check if packet is marked do-not-retransmit
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+async def forward_routed_ack(self, packet, rx_meta):
+    if self.seen_cache.contains(packet.dedupe_key):
+        return False
+    self.seen_cache.add(packet.dedupe_key)
+    packet.pop_next_hop()
+    return await self.transmit(packet, delay=self.direct_delay(packet, rx_meta))
+
+async def forward_multipart(self, packet, rx_meta):
+    self.multipart_tracker.observe(packet.message_id, packet.remaining_parts)
+    return await self.forward_according_to_route(packet, rx_meta)

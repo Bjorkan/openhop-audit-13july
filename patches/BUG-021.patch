@@ -1,0 +1,36 @@
+# BUG-021 — Pending ACK storage is an unbounded-time set with silent saturation
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/base_send.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/base_send.py
+CURRENT SNAPSHOT (starting near cited line 1035):
+------------------------------------------------------------------------------
+    def _track_pending_ack(self, ack_crc: int) -> None:
+        """Track pending ACK CRC for send_confirmed (capped)."""
+        if len(self._pending_ack_crcs) < MAX_PENDING_ACK_CRCS:
+            self._pending_ack_crcs.add(ack_crc)
+
+    async def _try_confirm_send(self, crc: int) -> bool:
+        """If CRC is pending, discard it and fire send_confirmed. Returns True if fired."""
+        if crc not in self._pending_ack_crcs:
+            return False
+        self._pending_ack_crcs.discard(crc)
+        await self._fire_callbacks("send_confirmed", crc)
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+MAX_PENDING_ACKS = 8
+ACK_TTL_SECONDS = 60.0
+self._pending_acks: deque[PendingAck] = deque(maxlen=MAX_PENDING_ACKS)
+
+self._expire_pending_acks(monotonic())
+if len(self._pending_acks) == MAX_PENDING_ACKS:
+    self._pending_acks.popleft()
+self._pending_acks.append(PendingAck(crc=ack_crc, sent_at=monotonic()))

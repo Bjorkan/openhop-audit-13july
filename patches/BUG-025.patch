@@ -1,0 +1,69 @@
+# BUG-025 — Response waiters are keyed by a one-byte contact prefix
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/node/handlers/protocol_response.py
+# - OpenHop Core: src/openhop_core/companion/base_send.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/node/handlers/protocol_response.py
+CURRENT SNAPSHOT (starting near cited line 200):
+------------------------------------------------------------------------------
+    def set_response_callback(
+        self, contact_hash: int, callback: Callable[[bool, str, Dict[str, Any]], None]
+    ) -> None:
+        """Set callback for protocol responses from a specific contact."""
+        self._response_callbacks[contact_hash] = callback
+
+    def clear_response_callback(self, contact_hash: int) -> None:
+        """Clear callback for protocol responses from a specific contact."""
+        self._response_callbacks.pop(contact_hash, None)
+
+    def set_binary_response_callback(self, callback: Callable[..., Any]) -> None:
+        """Set callback for binary responses. (tag_bytes, response_data, path_info=None).
+        path_info = (out_path, in_path, contact_pubkey) for path-return format."""
+        self._binary_response_callback = callback
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+request_tag = int.from_bytes(plaintext[:4], "little")
+for contact in self.contacts.find_all_by_prefix(source_prefix):
+    if not verify_response_mac(packet, contact):
+        continue
+    waiter = self.response_waiters.pop((contact.public_key, request_tag), None)
+    if waiter:
+        waiter.set_result(plaintext[4:])
+    return HandlerResult.authenticated(contact.public_key)
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/base_send.py
+CURRENT SNAPSHOT (starting near cited line 811):
+------------------------------------------------------------------------------
+    async def send_status_request(self, pub_key: bytes, timeout: float = 15.0) -> dict:
+        """Send a protocol request for repeater status/stats.
+
+        ``timeout`` caps the total wait across retries (seconds); each attempt
+        still uses the adaptive per-attempt timeout.
+        """
+        contact = self.contacts.get_by_key(pub_key)
+        if not contact:
+            return {"success": False, "reason": "Contact not found"}
+        # Resolve by exact public key, not name: two contacts can share a name
+        # (e.g. a re-keyed node) and get_by_name returns the first match, which
+        # would encrypt/route to the wrong key.
+        proxy = self.contacts.get_proxy_by_key(pub_key)
+        if not proxy:
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+key = (contact.public_key, request_tag)
+waiter = self.response_waiters.create(key)
+try:
+    await self._send_packet(packet)
+    return await asyncio.wait_for(waiter, timeout_s)
+finally:
+    self.response_waiters.pop(key, None)

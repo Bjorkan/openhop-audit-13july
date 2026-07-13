@@ -1,0 +1,53 @@
+# BUG-044 — Outbound companion payloads are truncated at 173 instead of 176 bytes
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/constants.py
+# - OpenHop Core: src/openhop_core/companion/frame_server/transport.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/constants.py
+CURRENT SNAPSHOT (starting near cited line 294):
+------------------------------------------------------------------------------
+# Match firmware: writeFrame() refuses to send if len > MAX_FRAME_SIZE; BLE MTU
+# is set to this (e.g. BLEDevice::setMTU(MAX_FRAME_SIZE)). Frame = prefix(1) + len(2) + payload.
+# 176 since MeshCore PR #2022 (+4 over the old 172 for region-scoping transport codes).
+MAX_FRAME_SIZE = 176
+MAX_PAYLOAD_SIZE = MAX_FRAME_SIZE - 3  # max bytes after prefix + 2-byte length
+# Firmware companion command parser uses MAX_FRAME_SIZE - 9 for channel binary payloads.
+MAX_CHANNEL_DATA_LENGTH = MAX_FRAME_SIZE - 9
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+MAX_FRAME_PAYLOAD = 176
+MAX_FRAME_SIZE = MAX_FRAME_PAYLOAD + 3  # marker + two-byte length
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/frame_server/transport.py
+CURRENT SNAPSHOT (starting near cited line 88):
+------------------------------------------------------------------------------
+    def _enqueue_frame(self, data: bytes) -> None:
+        """Build an outbound frame and enqueue it for the writer task.
+
+        Sync, non-blocking.  On ``QueueFull`` the frame is dropped with a
+        warning — this provides natural backpressure shedding.
+        """
+        if self._write_queue is None:
+            return
+        if len(data) > MAX_PAYLOAD_SIZE:
+            logger.warning(
+                "Outbound frame payload truncated from %s to %s (MAX_FRAME_SIZE=%s)",
+                len(data),
+                MAX_PAYLOAD_SIZE,
+                MAX_FRAME_SIZE,
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+if len(payload) > MAX_FRAME_PAYLOAD:
+    raise FrameTooLargeError(len(payload), MAX_FRAME_PAYLOAD)
+frame = FRAME_MARKER + len(payload).to_bytes(2, "little") + payload
+await self.transport.write(frame)

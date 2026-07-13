@@ -1,0 +1,74 @@
+# BUG-027 — Path discovery builds the wrong request body and tracks the wrong tag
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/base_send.py
+# - OpenHop Core: src/openhop_core/protocol/packet_builder.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/base_send.py
+CURRENT SNAPSHOT (starting near cited line 285):
+------------------------------------------------------------------------------
+    async def send_path_discovery_req(self, pub_key: bytes) -> SentResult:
+        """Send path discovery (flood telemetry request with tag).
+
+        Returns SentResult for RESP_CODE_SENT. When path return arrives with
+        matching tag, path_discovery_response is fired (PUSH 0x8D).
+        """
+        contact = self.contacts.get_by_key(pub_key)
+        if not contact:
+            return SentResult(success=False)
+        # Resolve by exact public key, not name: two contacts can share a name
+        # (e.g. a re-keyed node) and get_by_name returns the first match, which
+        # would encrypt/route to the wrong key.
+        proxy = self.contacts.get_proxy_by_key(pub_key)
+        if not proxy:
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+request_data = bytes([
+    REQ_TYPE_GET_TELEMETRY_DATA,
+    (~TELEM_PERM_BASE) & 0xFF,
+    0, 0, 0,
+]) + secrets.token_bytes(4)
+packet, request_tag = PacketBuilder.create_protocol_request(
+    contact=contact,
+    local_identity=self._identity,
+    data=request_data,
+    force_flood=True,
+)
+if await self._send_packet(packet):
+    self._pending_discovery_tags.add(request_tag)
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/protocol/packet_builder.py
+CURRENT SNAPSHOT (starting near cited line 1080):
+------------------------------------------------------------------------------
+        timestamp: Optional[int] = None,
+    ) -> tuple[Packet, int]:
+        """
+        Create a protocol request packet for repeater commands.
+
+        Generates an encrypted protocol request for administrative commands
+        or special operations with repeaters and infrastructure nodes.
+
+        Args:
+            contact: The repeater contact to send the request to.
+            local_identity: The local node identity for encryption.
+            protocol_code: The protocol command code.
+            data: Additional binary data for the request.
+            timestamp: Optional timestamp (uses current time if None).
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+def create_protocol_request(..., data: bytes, force_flood: bool = False):
+    timestamp = PacketBuilder._get_timestamp()
+    plaintext = timestamp.to_bytes(4, "little") + bytes(data)
+    payload, _, _ = PacketBuilder._create_encrypted_payload(contact, local_identity, plaintext)
+    route_type = "flood" if force_flood or contact.out_path_len == OUT_PATH_UNKNOWN else "direct"
+    packet = PacketBuilder._create_packet(PacketBuilder._create_header(PAYLOAD_TYPE_REQ, route_type), payload)
+    return packet, timestamp

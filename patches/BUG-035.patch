@@ -1,0 +1,32 @@
+# BUG-035 — SHARE_CONTACT maps send failure to NOT_FOUND
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/frame_server/commands_contacts.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/frame_server/commands_contacts.py
+CURRENT SNAPSHOT (starting near cited line 174):
+------------------------------------------------------------------------------
+        if len(data) < PUB_KEY_SIZE:
+            self._write_err(ERR_CODE_ILLEGAL_ARG)
+            return
+        pubkey = data[:PUB_KEY_SIZE]
+        ok = await self.bridge.share_contact(pubkey)
+        self._write_ok() if ok else self._write_err(ERR_CODE_NOT_FOUND)
+
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+contact = self.bridge.get_contact(public_key)
+if contact is None:
+    self._write_err(ERR_CODE_NOT_FOUND)
+    return
+if not await self.bridge.share_contact(contact):
+    self._write_err(ERR_CODE_TABLE_FULL)
+    return
+self._write_ok()

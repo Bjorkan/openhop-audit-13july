@@ -1,0 +1,137 @@
+# BUG-063 — Preloaded SQLite messages are delivered twice after restart
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/message_queue.py
+# - OpenHop Core: src/openhop_core/companion/base_send.py
+# - OpenHop Repeater: repeater/main.py
+# - OpenHop Repeater: repeater/companion/frame_server.py
+# - OpenHop Repeater: repeater/data_acquisition/sqlite_handler.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/message_queue.py
+CURRENT SNAPSHOT (starting near cited line 30):
+------------------------------------------------------------------------------
+    def push(self, msg: QueuedMessage) -> bool:
+        """Add a message to the queue. Returns True on success.
+
+        If the queue is at capacity the oldest message is silently dropped.
+        """
+        self._queue.append(msg)
+        return True
+
+    def pop(self) -> Optional[QueuedMessage]:
+        """Remove and return the oldest message, or None if empty."""
+        if self._queue:
+            return self._queue.popleft()
+        return None
+
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# SQLite is authoritative for persisted offline messages.
+async def pop(self) -> QueuedMessage | None:
+    if self.sqlite_backend is not None:
+        return await self.sqlite_backend.pop_oldest()
+    return self._messages.popleft() if self._messages else None
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/base_send.py
+CURRENT SNAPSHOT (starting near cited line 1048):
+------------------------------------------------------------------------------
+    def sync_next_message(self) -> Optional[QueuedMessage]:
+        """Pop and return the next queued message, or None."""
+        return self.message_queue.pop()
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+waiting = await self.message_queue.count()
+return MessagesWaiting(count=waiting)
+# Do not preload persisted payloads into the in-memory deque.
+
+==============================================================================
+FILE: OpenHop Repeater / repeater/main.py
+CURRENT SNAPSHOT (starting near cited line 647):
+------------------------------------------------------------------------------
+                    # Preload queued messages from SQLite into bridge, bounded by
+                    # offline_queue_size (0 disables offline storage entirely).
+                    retention = getattr(bridge.message_queue, "_max_size", None)
+                    if retention != 0:
+                        for msg_dict in sqlite_handler.companion_load_messages(
+                            companion_hash_str, limit=retention or 100
+                        ):
+                            from openhop_core.companion.models import QueuedMessage
+
+                            sk = msg_dict.get("sender_key", b"")
+                            if isinstance(sk, str):
+                                sk = bytes.fromhex(sk)
+                            bridge.message_queue.push(
+                                QueuedMessage(
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+companion_server = FrameServer(
+    ...,
+    message_store=sqlite_handler,
+    preload_messages=False,
+)
+
+==============================================================================
+FILE: OpenHop Repeater / repeater/companion/frame_server.py
+CURRENT SNAPSHOT (starting near cited line 82):
+------------------------------------------------------------------------------
+    def _sync_next_from_persistence(self) -> Optional[QueuedMessage]:
+        """Retrieve next message from SQLite when bridge queue is empty."""
+        if not self.sqlite_handler:
+            return None
+        msg_dict = self.sqlite_handler.companion_pop_message(self.companion_hash)
+        if not msg_dict:
+            return None
+        return QueuedMessage(
+            sender_key=msg_dict.get("sender_key", b""),
+            txt_type=msg_dict.get("txt_type", 0),
+            timestamp=msg_dict.get("timestamp", 0),
+            text=msg_dict.get("text", ""),
+            is_channel=bool(msg_dict.get("is_channel", False)),
+            channel_idx=msg_dict.get("channel_idx", 0),
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+async def next_offline_message(self):
+    return await self.sqlite.pop_oldest_companion_message(self.companion_id)
+
+async def offline_message_count(self):
+    return await self.sqlite.count_companion_messages(self.companion_id)
+
+==============================================================================
+FILE: OpenHop Repeater / repeater/data_acquisition/sqlite_handler.py
+CURRENT SNAPSHOT (starting near cited line 2648):
+------------------------------------------------------------------------------
+    def companion_load_messages(self, companion_hash: str, limit: int = 100) -> List[Dict]:
+        """Load queued messages for a companion (oldest first for queue order)."""
+        try:
+            with self._connect() as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.execute(
+                    """
+                    SELECT sender_key, txt_type, timestamp, text, is_channel, channel_idx, path_len
+                    FROM companion_messages WHERE companion_hash = ?
+                    ORDER BY created_at ASC LIMIT ?
+                """,
+                    (companion_hash, limit),
+                )
+                return [dict(row) for row in cursor.fetchall()]
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+async def pop_oldest_companion_message(self, companion_id):
+    with self.connection:
+        row = self._select_oldest_for_update(companion_id)
+        if row is None:
+            return None
+        self._delete_message(row["id"])
+        return self._row_to_queued_message(row)

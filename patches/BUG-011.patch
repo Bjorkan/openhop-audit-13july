@@ -1,0 +1,37 @@
+# BUG-011 — AES padding and extended-attempt metadata are delivered as message text
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/node/handlers/text.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/node/handlers/text.py
+CURRENT SNAPSHOT (starting near cited line 251):
+------------------------------------------------------------------------------
+        # Extract fields from decrypted data
+        timestamp = decrypted[:4]  # First 4 bytes are the timestamp
+        flags = decrypted[4]  # 5th byte contains flags
+        txt_type = (flags >> 2) & 0x3F  # Upper 6 bits are txt_type
+        message_body = decrypted[5:]  # Rest is the message content
+        sender_prefix = b""
+        if txt_type == TXT_TYPE_SIGNED_PLAIN:
+            # Signed plain text (e.g. room server posts): a 4-byte author
+            # pubkey prefix precedes the text (BaseChatMesh::onPeerDataRecv ->
+            # onSignedMessageRecv(&data[5], &data[9])).
+            if len(decrypted) < 9:
+                self.log("Signed message too short for author prefix")
+                return
+            sender_prefix = bytes(decrypted[5:9])
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+flags = decrypted[4]
+body = bytes(decrypted[payload_offset:])
+visible, separator, metadata = body.partition(b"\x00")
+message = visible.decode("utf-8", errors="replace")
+retry_attempt = metadata[0] if separator and metadata else (flags & 0x03)
+# Remaining bytes are AES padding and must not be appended to message.

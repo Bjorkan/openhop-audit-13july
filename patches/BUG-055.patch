@@ -1,0 +1,66 @@
+# BUG-055 — Missing advert-limiter configuration falls back to forwarding-blocking defaults
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Repeater: config.yaml.example
+# - OpenHop Repeater: repeater/handler_helpers/advert.py
+
+==============================================================================
+FILE: OpenHop Repeater / config.yaml.example
+CURRENT SNAPSHOT (starting near cited line 58):
+------------------------------------------------------------------------------
+  advert_rate_limit:
+    # Master switch for token bucket limiting
+    enabled: false
+    # Max burst size allowed immediately per pubkey
+    # Keep this small for long advert intervals.
+    bucket_capacity: 2
+    # Number of tokens added each refill interval
+    refill_tokens: 1
+    # Refill interval in seconds (10 hours)
+    refill_interval_seconds: 36000
+    # Optional hard minimum spacing between adverts from same pubkey
+    # Set 0 to disable (recommended - mesh retransmissions are normal in active networks)
+    min_interval_seconds: 0
+
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+advert_limiter:
+  enabled: false
+  block_forwarding: false
+  rate_limit_enabled: false
+  duplicate_filter_enabled: false
+
+==============================================================================
+FILE: OpenHop Repeater / repeater/handler_helpers/advert.py
+CURRENT SNAPSHOT (starting near cited line 63):
+------------------------------------------------------------------------------
+        # --- Adaptive mode config ---
+        adaptive_cfg = repeater_cfg.get("advert_adaptive", {})
+        self._adaptive_enabled = bool(adaptive_cfg.get("enabled", True))
+        self._ewma_alpha = max(0.01, min(1.0, float(adaptive_cfg.get("ewma_alpha", 0.1))))
+        self._tier_hysteresis_seconds = max(
+            0.0, float(adaptive_cfg.get("hysteresis_seconds", 300.0))
+        )
+
+        # Tier thresholds (packets per minute)
+        thresholds = adaptive_cfg.get("thresholds", {})
+        self._threshold_normal = float(thresholds.get("normal", 1.0))
+        self._threshold_busy = float(thresholds.get("busy", 5.0))
+        self._threshold_congested = float(thresholds.get("congested", 15.0))
+
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+cfg = config.get("advert_limiter", {})
+enabled = bool(cfg.get("enabled", False))
+block_forwarding = bool(cfg.get("block_forwarding", False))
+rate_limit_enabled = bool(cfg.get("rate_limit_enabled", False))
+
+if not enabled:
+    return AdvertDecision(store=True, forward=True)

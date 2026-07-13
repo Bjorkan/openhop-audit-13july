@@ -2,7 +2,7 @@
 
 A source-level audit of the combined OpenHop Core and OpenHop Repeater stack against the official MeshCore implementation.
 
-Each confirmed defect has one Markdown file. A report includes both Core and Repeater changes when the fix crosses repository boundaries.
+Each confirmed defect has one Markdown file. A report includes both Core and Repeater changes when the fix crosses repository boundaries. Every report also links to an annotated, LLM-generated implementation sketch in `patches/` showing the likely files and before/after code shape. These sketches are not reviewed, tested, or ready to apply directly; they are only an approximate guide to the work a maintainer may need to perform. Every report also links to an annotated, LLM-generated implementation sketch in `patches/` showing the likely files and before/after code shape. These sketches are not reviewed, tested, or ready to apply directly; they are only an approximate guide to the work a maintainer may need to perform.
 
 ## At a glance
 

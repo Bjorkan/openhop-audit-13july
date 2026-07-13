@@ -1,0 +1,28 @@
+# BUG-012 — Login passwords are truncated by characters instead of bytes
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/protocol/packet_builder.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/protocol/packet_builder.py
+CURRENT SNAPSHOT (starting near cited line 648):
+------------------------------------------------------------------------------
+        timestamp = PacketBuilder._get_timestamp()
+        password_truncated = password[:15]
+        password_bytes = password_truncated.encode("utf-8")
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+password_bytes = password.encode("utf-8")[:15]
+# Optional textual policy: trim an incomplete final UTF-8 sequence.
+while password_bytes:
+    try:
+        password_bytes.decode("utf-8")
+        break
+    except UnicodeDecodeError:
+        password_bytes = password_bytes[:-1]

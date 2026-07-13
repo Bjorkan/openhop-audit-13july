@@ -1,0 +1,66 @@
+# BUG-007 — Group binary data is encrypted with the wrong AES key
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/protocol/packet_builder.py
+# - OpenHop Core: src/openhop_core/companion/base_send.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/protocol/packet_builder.py
+CURRENT SNAPSHOT (starting near cited line 779):
+------------------------------------------------------------------------------
+    def create_group_data_packet(
+        ptype: int,
+        channel_hash: int,
+        channel_secret: bytes,
+        plaintext: bytes,
+        secret: bytes,
+    ) -> Packet:
+        """
+        Create a group packet with generic encrypted data.
+
+        Generates a group packet for text messages or data with channel-specific
+        encryption using the provided shared secret.
+
+        Args:
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+channel_secret = bytes(secret[:32]).ljust(32, b"\x00")
+aes_key = channel_secret[:16]
+cipher = PacketBuilder._encrypt_payload(aes_key, channel_secret, plaintext)
+payload = bytearray([channel_hash]) + cipher
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/base_send.py
+CURRENT SNAPSHOT (starting near cited line 439):
+------------------------------------------------------------------------------
+    async def send_channel_data(
+        self,
+        channel_idx: int,
+        data_type: int,
+        payload: bytes,
+        *,
+        path: Optional[bytes] = None,
+        path_len_encoded: Optional[int] = None,
+    ) -> bool:
+        """Send a group binary datagram (PAYLOAD_TYPE_GRP_DATA)."""
+        channel = self.channels.get(channel_idx)
+        if not channel or data_type <= 0 or data_type > 0xFFFF:
+            return False
+        payload = bytes(payload or b"")
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+channel_secret = bytes(channel.secret or b"")[:32].ljust(32, b"\x00")
+channel_hash = hashlib.sha256(channel_secret).digest()[0]
+pkt = PacketBuilder.create_group_data_packet(
+    PAYLOAD_TYPE_GRP_DATA,
+    channel_hash,
+    channel_secret,
+    plaintext,
+)

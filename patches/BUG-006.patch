@@ -1,0 +1,35 @@
+# BUG-006 — Empty PATH returns omit MeshCore's random uniqueness filler
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/protocol/packet_builder.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/protocol/packet_builder.py
+CURRENT SNAPSHOT (starting near cited line 873):
+------------------------------------------------------------------------------
+    def create_path_return(
+        dest_hash: int,
+        src_hash: int,
+        secret: bytes,
+        path: Sequence[int],
+        extra_type: int = 0xFF,
+        extra: bytes = b"",
+        path_len_encoded: Optional[int] = None,
+    ) -> Packet:
+        """
+        Create a secure return path packet with optional metadata.
+
+        Generates an encrypted packet containing a return path for secure
+        two-way communication, with optional additional data.
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+extra = bytes(extra_payload or b"")
+if not extra:
+    extra = secrets.token_bytes(4)
+plaintext = bytes([0xFF]) + extra

@@ -1,0 +1,41 @@
+# BUG-018 — Delivery ACKs use route timeout calculations instead of the 200 ms delay
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/node/handlers/text.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/node/handlers/text.py
+CURRENT SNAPSHOT (starting near cited line 115):
+------------------------------------------------------------------------------
+        def airtime(pkt) -> float:
+            return PacketTimingUtils.estimate_airtime_ms(
+                len(pkt.write_to()), self.radio_config
+            )
+
+        if is_flood:
+            incoming_path = list(packet.path if hasattr(packet, "path") else [])
+            path_len_encoded = (
+                getattr(packet, "path_len", None)
+                if PathUtils.is_valid_path_len(getattr(packet, "path_len", -1))
+                else None
+            )
+            ack_packet = PacketBuilder.create_path_return(
+                dest_hash=PacketBuilder._hash_byte(pubkey),
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ACK_RESPONSE_DELAY_SECONDS = 0.200
+
+if should_send_delivery_ack(packet, authenticated_sender):
+    self.scheduler.call_later(
+        ACK_RESPONSE_DELAY_SECONDS,
+        self._send_ack_to,
+        authenticated_sender,
+        ack_crc,
+    )
+# Sender timeout estimation remains separate from this receiver delay.

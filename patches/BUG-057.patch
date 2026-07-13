@@ -1,0 +1,38 @@
+# BUG-057 — PathHelper treats encoded path_len as a byte count
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Repeater: repeater/handler_helpers/path.py
+
+==============================================================================
+FILE: OpenHop Repeater / repeater/handler_helpers/path.py
+CURRENT SNAPSHOT (starting near cited line 55):
+------------------------------------------------------------------------------
+            aes_key = shared_secret[:16]
+            decrypted = CryptoUtils.mac_then_decrypt(aes_key, shared_secret, mac_and_data)
+
+            if not decrypted:
+                logger.debug(f"Failed to decrypt PATH packet from 0x{src_hash:02X}")
+                return False
+
+            # Parse decrypted PATH data
+            # Format: path_len(1) + path[path_len] + extra_type(1) + extra[...]
+            if len(decrypted) < 1:
+                logger.debug("Decrypted PATH data too short")
+                return False
+
+            path_len = decrypted[0]
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+encoded_path_len = plaintext[path_len_offset]
+if not PathUtils.is_valid_path_len(encoded_path_len):
+    return LocalHandleResult.rejected()
+path_byte_len = PathUtils.get_path_byte_len(encoded_path_len)
+path = bytes(plaintext[path_offset : path_offset + path_byte_len])
+contact.out_path_len = encoded_path_len
+contact.out_path = path

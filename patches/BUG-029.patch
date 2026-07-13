@@ -1,0 +1,37 @@
+# BUG-029 — CONTROL packets are accepted on non-direct routes
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/node/handlers/control.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/node/handlers/control.py
+CURRENT SNAPSHOT (starting near cited line 70):
+------------------------------------------------------------------------------
+    async def __call__(self, pkt: Packet) -> Optional[Dict[str, Any]]:
+        """Handle incoming control packet and return parsed data."""
+        try:
+            if not pkt.payload or len(pkt.payload) == 0:
+                self._log("[ControlHandler] Empty payload, ignoring")
+                return None
+
+            # Check if this is a zero-hop packet. The on-wire path_len byte is
+            # encoded (bits 6-7 carry hash-size mode), so zero-hop can be 0,
+            # 64, or 128 depending on hash-size mode.
+            if pkt.get_path_hash_count() != 0:
+                self._log(
+                    f"[ControlHandler] Non-zero path length ({pkt.path_len}), ignoring"
+                )
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+if not packet.is_route_direct:
+    return HandlerResult.not_for_us()
+if not (packet.payload[0] & 0x80):
+    return HandlerResult.rejected("invalid CONTROL marker")
+result = self._handle_control(packet)
+return HandlerResult.handled(result, retransmit=False)

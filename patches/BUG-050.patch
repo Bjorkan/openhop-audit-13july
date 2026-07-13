@@ -1,0 +1,39 @@
+# BUG-050 — Transport flood and direct routes use incorrect retransmit delays
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Repeater: repeater/engine.py
+
+==============================================================================
+FILE: OpenHop Repeater / repeater/engine.py
+CURRENT SNAPSHOT (starting near cited line 1051):
+------------------------------------------------------------------------------
+    def _calculate_tx_delay(self, packet: Packet, snr: float = 0.0) -> float:
+
+        packet_len = packet.get_raw_length()
+        airtime_ms = self.airtime_mgr.calculate_airtime(packet_len)
+
+        route_type = packet.header & PH_ROUTE_MASK
+
+        # Base delay calculations
+        # this part took me along time to get right well i hope i got it right ;-)
+
+        if route_type == ROUTE_TYPE_FLOOD:
+            # Flood packets: random(0-5) * (airtime * 52/50 / 2) * tx_delay_factor
+            # This creates collision avoidance with tunable delay
+            base_delay_ms = (airtime_ms * 52 / 50) / 2.0  # From C++ implementation
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+if packet.is_route_flood:
+    delay_ms = self.calc_flood_retransmit_delay(packet, rx_meta)
+elif packet.is_route_direct:
+    delay_ms = self.calc_direct_retransmit_delay(packet, rx_meta)
+else:
+    raise ValueError("unsupported route type")
+
+return await self.transmit(packet, delay_ms=delay_ms)

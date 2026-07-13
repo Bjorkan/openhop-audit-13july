@@ -1,0 +1,38 @@
+# BUG-030 — A private region without stored keys becomes a public hashtag scope
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/protocol/region_map.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/protocol/region_map.py
+CURRENT SNAPSHOT (starting near cited line 49):
+------------------------------------------------------------------------------
+    def _iter_region_keys(self, region: RegionEntry) -> Iterable[bytes]:
+        """Yield all transport keys for a region."""
+        # Private regions: caller supplies explicit keys (e.g. from secure store)
+        if region.private_keys:
+            for key in region.private_keys:
+                if len(key) == 16:
+                    yield key
+            return
+
+        name = region.name or ""
+        if not name:
+            return
+
+        # Public hashtag region: firmware treats names starting with '#' as
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+if name.startswith("$"):
+    for key in self.private_region_keys.get(name, ()):
+        yield RegionScope.private(name=name, key=key)
+    return
+
+# Only non-private names may fall through to public hashtag scope.
+yield RegionScope.public(name=name)

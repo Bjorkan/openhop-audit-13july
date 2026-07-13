@@ -1,0 +1,63 @@
+# BUG-008 — Group binary data over 165 bytes is accepted
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/base_send.py
+# - OpenHop Core: src/openhop_core/companion/frame_server/commands_messaging.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/base_send.py
+CURRENT SNAPSHOT (starting near cited line 439):
+------------------------------------------------------------------------------
+    async def send_channel_data(
+        self,
+        channel_idx: int,
+        data_type: int,
+        payload: bytes,
+        *,
+        path: Optional[bytes] = None,
+        path_len_encoded: Optional[int] = None,
+    ) -> bool:
+        """Send a group binary datagram (PAYLOAD_TYPE_GRP_DATA)."""
+        channel = self.channels.get(channel_idx)
+        if not channel or data_type <= 0 or data_type > 0xFFFF:
+            return False
+        payload = bytes(payload or b"")
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+MAX_GROUP_DATA_LENGTH = 165
+payload = bytes(payload or b"")
+if len(payload) > MAX_GROUP_DATA_LENGTH:
+    return False
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/frame_server/commands_messaging.py
+CURRENT SNAPSHOT (starting near cited line 107):
+------------------------------------------------------------------------------
+        path_len = data[1]
+        if self.bridge.get_channel(channel_idx) is None:
+            self._write_err(ERR_CODE_NOT_FOUND)
+            return
+        offset = 2
+        path = b""
+        if path_len != OUT_PATH_UNKNOWN:
+            if not PathUtils.is_valid_path_len(path_len):
+                self._write_err(ERR_CODE_ILLEGAL_ARG)
+                return
+            path_byte_len = PathUtils.get_path_byte_len(path_len)
+            if len(data) < offset + path_byte_len + 2:
+                self._write_err(ERR_CODE_ILLEGAL_ARG)
+                return
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+payload = data[offset + 2 :]
+if data_type == 0 or len(payload) > 165:
+    self._write_err(ERR_CODE_ILLEGAL_ARG)
+    return
+# Only report success after send_channel_data(...) returns true.

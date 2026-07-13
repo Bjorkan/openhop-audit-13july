@@ -1,0 +1,39 @@
+# BUG-014 — Older advertisements can overwrite newer contacts
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/base_contacts.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/base_contacts.py
+CURRENT SNAPSHOT (starting near cited line 188):
+------------------------------------------------------------------------------
+    async def _apply_advert_to_stores(
+        self,
+        contact: Contact,
+        inbound_path: Optional[bytes] = None,
+        *,
+        path_len_encoded: Optional[int] = None,
+    ) -> Optional[Contact]:
+        """Apply advert to ContactStore and PathCache. Shared by Bridge and NODE_DISCOVERED.
+
+        Mirrors C++ BaseChatMesh::onAdvertRecv (existing update, auto-add filter,
+        overwrite when full). Returns the Contact if added or updated, None otherwise.
+        Path cache is updated for all valid contacts (pub_key >= 7, name non-empty).
+
+        Args:
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+incoming_timestamp = advert.timestamp & 0xFFFFFFFF
+stored_timestamp = contact.last_advert_timestamp & 0xFFFFFFFF
+if not is_newer_advert_timestamp(incoming_timestamp, stored_timestamp):
+    return False
+
+# Only mutate name, location, features, path and raw advert after the timestamp check.
+contact.last_advert_timestamp = incoming_timestamp
+contact.last_advert_packet = bytes(advert.raw_packet)

@@ -1,0 +1,61 @@
+# BUG-038 — Auto-add maximum hops is neither stored nor enforced
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/models.py
+# - OpenHop Core: src/openhop_core/companion/frame_server/commands_device.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/models.py
+CURRENT SNAPSHOT (starting near cited line 132):
+------------------------------------------------------------------------------
+class NodePrefs:
+    """Node configuration preferences (equivalent to firmware NodePrefs)."""
+
+    node_name: str = "pyMC"
+    adv_type: int = 1  # ADV_TYPE_CHAT
+    tx_power_dbm: int = 20
+    frequency_hz: int = 915000000
+    bandwidth_hz: int = 250000
+    spreading_factor: int = 10
+    coding_rate: int = 5
+    latitude: float = 0.0
+    longitude: float = 0.0
+    advert_loc_policy: int = 0  # ADVERT_LOC_NONE
+    multi_acks: int = 0
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+@dataclass
+class CompanionPreferences:
+    auto_add_contacts: bool = False
+    auto_add_max_hops: int = 0xFF
+
+    def allows_auto_add(self, encoded_path_len: int) -> bool:
+        return self.auto_add_max_hops == 0xFF or PathUtils.get_hop_count(encoded_path_len) <= self.auto_add_max_hops
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/frame_server/commands_device.py
+CURRENT SNAPSHOT (starting near cited line 360):
+------------------------------------------------------------------------------
+    async def _cmd_set_autoadd_config(self, data: bytes) -> None:
+        if len(data) < 1:
+            self._write_err(ERR_CODE_ILLEGAL_ARG)
+            return
+        self.bridge.set_autoadd_config(data[0])
+        self._write_ok()
+
+    async def _cmd_get_autoadd_config(self, data: bytes) -> None:
+        config = self.bridge.get_autoadd_config()
+        self._write_frame(bytes([RESP_CODE_AUTOADD_CONFIG, config & 0xFF]))
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+if len(data) >= AUTO_ADD_MAX_HOPS_OFFSET + 1:
+    prefs.auto_add_max_hops = min(data[AUTO_ADD_MAX_HOPS_OFFSET], 0x3F)
+self.bridge.save_preferences(prefs)
+# Include prefs.auto_add_max_hops in the corresponding response frame.

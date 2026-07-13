@@ -1,0 +1,37 @@
+# BUG-009 — Direct messages are not capped at 160 bytes
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/protocol/packet_builder.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/protocol/packet_builder.py
+CURRENT SNAPSHOT (starting near cited line 935):
+------------------------------------------------------------------------------
+    @staticmethod
+    def create_text_message(
+        contact: Any,
+        local_identity: LocalIdentity,
+        message: str,
+        attempt: int = 0,
+        message_type: str = "direct",
+        out_path: Optional[list] = None,
+        txt_type: int = 0,
+        timestamp: Optional[int] = None,
+    ) -> tuple[Packet, int]:
+        """
+        Create a secure text message with encryption and CRC validation.
+
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+message_bytes = message.encode("utf-8")
+max_message_bytes = MAX_TEXT_LEN - (2 if attempt > 3 else 0)
+if len(message_bytes) > max_message_bytes:
+    raise ValueError("text message exceeds MeshCore byte limit")
+
+# Pass bytes into the plaintext builder; do not validate Python character count.

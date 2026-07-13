@@ -1,0 +1,41 @@
+# BUG-045 — Login, status, and telemetry commands report SENT before attempting the send
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/frame_server/commands_messaging.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/frame_server/commands_messaging.py
+CURRENT SNAPSHOT (starting near cited line 379):
+------------------------------------------------------------------------------
+    async def _cmd_send_login(self, data: bytes) -> None:
+        if len(data) < PUB_KEY_SIZE:
+            self._write_err(ERR_CODE_ILLEGAL_ARG)
+            return
+        pubkey = data[:PUB_KEY_SIZE]
+        password = (
+            data[PUB_KEY_SIZE:].decode("utf-8", errors="replace").rstrip("\x00")
+            if len(data) > PUB_KEY_SIZE
+            else ""
+        )
+        self._write_sent_response(True, 0, LOGIN_TIMEOUT_HINT_MS)
+        result = await self.bridge.send_login(pubkey, password)
+        if result.get("success"):
+            # Layout matches MeshCore companion_radio onContactResponse
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+result = await self.bridge.send_login(contact, password)
+if not result.success:
+    self._write_err(result.error_code)
+    return
+self._write_sent(
+    is_flood=result.is_flood,
+    tag=result.tag,
+    timeout_ms=result.timeout_ms,
+)
+# Apply the same single-response flow to status and telemetry commands.

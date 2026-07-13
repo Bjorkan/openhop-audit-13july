@@ -1,0 +1,38 @@
+# BUG-013 — The valid coordinate (0, 0) is omitted from adverts
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/base_send.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/base_send.py
+CURRENT SNAPSHOT (starting near cited line 55):
+------------------------------------------------------------------------------
+    async def advertise(self, flood: bool = True) -> bool:
+        """Broadcast an advertisement packet."""
+        flags = adv_type_to_flags(self.prefs.adv_type)
+        flags |= ADVERT_FLAG_HAS_NAME
+        lat, lon = 0.0, 0.0
+        if self.prefs.advert_loc_policy == ADVERT_LOC_SHARE:
+            lat, lon = self.prefs.latitude, self.prefs.longitude
+            if lat != 0.0 or lon != 0.0:
+                flags |= ADVERT_FLAG_HAS_LOCATION
+        route = "flood" if flood else "direct"
+        pkt = PacketBuilder.create_advert(
+            local_identity=self._identity,
+            name=self.prefs.node_name,
+            lat=lat,
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+location_enabled = bool(self.preferences.share_location)
+latitude = self.preferences.latitude
+longitude = self.preferences.longitude
+if location_enabled and latitude is not None and longitude is not None:
+    advert_kwargs["lat"] = float(latitude)
+    advert_kwargs["lon"] = float(longitude)
+# Numeric zero is a valid coordinate and must not mean "missing".

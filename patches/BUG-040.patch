@@ -1,0 +1,39 @@
+# BUG-040 — APP_START overwrites protocol version from a reserved byte and accepts short frames
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/frame_server/commands_device.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/frame_server/commands_device.py
+CURRENT SNAPSHOT (starting near cited line 37):
+------------------------------------------------------------------------------
+    async def _cmd_app_start(self, data: bytes) -> None:
+        if len(data) >= 1:
+            self._app_target_ver = data[0]
+        prefs = self.bridge.get_self_info()
+        pubkey = self.bridge.get_public_key()
+        name = prefs.node_name.encode("utf-8", errors="replace")
+        lat = int(getattr(prefs, "latitude", 0) * 1e6)
+        lon = int(getattr(prefs, "longitude", 0) * 1e6)
+        frame = (
+            bytes([RESP_CODE_SELF_INFO, ADV_TYPE_CHAT, prefs.tx_power_dbm, 22])
+            + pubkey
+            + struct.pack("<ii", lat, lon)
+            + bytes(
+                [
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+async def handle_app_start(self, data: bytes) -> None:
+    if len(data) < 7:
+        self._write_err(ERR_CODE_ILLEGAL_ARG)
+        return
+    # APP_START consumes session parameters only. It must not change
+    # self.protocol_version, which is negotiated by DEVICE_QUERY.
+    self.bridge.start_app_session(data[:7])
+    self._write_ok()

@@ -1,0 +1,68 @@
+# BUG-043 — The implemented companion signing pipeline is unreachable
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/companion/base_config.py
+# - OpenHop Core: src/openhop_core/companion/frame_server/server.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/base_config.py
+CURRENT SNAPSHOT (starting near cited line 145):
+------------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # Signing Pipeline
+    # -------------------------------------------------------------------------
+
+    def sign_start(self) -> int:
+        """Begin a signing session; returns the maximum sign buffer size."""
+        self._sign_buffer = bytearray()
+        return MAX_SIGN_DATA_SIZE
+
+    def sign_data(self, data: bytes) -> bool:
+        """Append data to the signing buffer."""
+        if self._sign_buffer is None:
+            logger.warning("sign_data called without sign_start")
+            return False
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+MAX_SIGNING_MESSAGE_SIZE = 8 * 1024
+
+async def begin_signing(self, expected_size: int) -> bool:
+    if expected_size < 0 or expected_size > MAX_SIGNING_MESSAGE_SIZE:
+        return False
+    self._signing_buffer = bytearray()
+    self._signing_expected_size = expected_size
+    return True
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/companion/frame_server/server.py
+CURRENT SNAPSHOT (starting near cited line 152):
+------------------------------------------------------------------------------
+        # Command dispatch registry: cmd byte -> async handler(data)
+        self._cmd_handlers = {
+            CMD_APP_START: self._cmd_app_start,
+            CMD_DEVICE_QUERY: self._cmd_device_query,
+            CMD_GET_CONTACTS: self._cmd_get_contacts,
+            CMD_GET_CONTACT_BY_KEY: self._cmd_get_contact_by_key,
+            CMD_SEND_TXT_MSG: self._cmd_send_txt_msg,
+            CMD_SEND_CHANNEL_TXT_MSG: self._cmd_send_channel_txt_msg,
+            CMD_SEND_CHANNEL_DATA: self._cmd_send_channel_data,
+            CMD_SYNC_NEXT_MESSAGE: self._cmd_sync_next_message,
+            CMD_SEND_LOGIN: self._cmd_send_login,
+            CMD_SEND_STATUS_REQ: self._cmd_send_status_req,
+            CMD_SEND_TELEMETRY_REQ: self._cmd_send_telemetry_req,
+            CMD_SEND_SELF_ADVERT: self._cmd_send_self_advert,
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+self.command_handlers.update({
+    CMD_SIGN_START: self.commands_device.handle_sign_start,
+    CMD_SIGN_DATA: self.commands_device.handle_sign_data,
+    CMD_SIGN_FINISH: self.commands_device.handle_sign_finish,
+})
+# Clear the signing buffer on disconnect, overflow, error and successful finish.

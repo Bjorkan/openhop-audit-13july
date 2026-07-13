@@ -1,0 +1,35 @@
+# BUG-005 — Advert names are trimmed during parsing
+#
+# LLM-GENERATED IMPLEMENTATION SKETCH — DO NOT APPLY DIRECTLY.
+# This code illustrates only the approximate scope and direction of a possible fix.
+# It has not been reviewed, compiled, tested, or checked against the other sketches.
+# A maintainer must verify MeshCore behavior, rewrite as needed, add tests, and review interactions.
+#
+# Files:
+# - OpenHop Core: src/openhop_core/protocol/utils.py
+
+==============================================================================
+FILE: OpenHop Core / src/openhop_core/protocol/utils.py
+CURRENT SNAPSHOT (starting near cited line 106):
+------------------------------------------------------------------------------
+def decode_appdata(appdata: bytes) -> dict:
+    result = {}
+    offset = 0
+    if len(appdata) < 1:
+        raise ValueError("Appdata too short to contain flags")
+    flags = appdata[offset]
+    result["flags"] = flags
+    offset += 1
+
+    # Parse conditional fields based on flags (following the same logic as packet_analyzer)
+    if flags & 0x10:  # has_location
+        if len(appdata) >= offset + 8:
+            import struct
+
+
+SUGGESTED AFTER-STATE:
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+raw_name = appdata[offset:].split(b"\x00", 1)[0]
+name = raw_name.decode("utf-8", errors="replace")
+# Preserve protocol content. UI code may derive name.strip() separately.
+result["node_name"] = name
