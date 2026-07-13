@@ -1,0 +1,156 @@
+# BUG-049 — Path discovery can remain direct after the contact is forced to flood
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **High** |
+| Area | Path discovery |
+| Affected components | OpenHop Core |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+OpenHop captures a ContactProxy, then changes the backing Contact to unknown path and replaces the cached proxy. The captured proxy retains the old out_path_len, so the packet builder can still select direct routing. To fix it, force the route on the packet explicitly or fetch the new proxy after updating. Avoid mutating shared contact state merely to select one send route; test a contact that starts with a known path.
+
+## What happens
+
+OpenHop captures a ContactProxy, then changes the backing Contact to unknown path and replaces the cached proxy. The captured proxy retains the old out_path_len, so the packet builder can still select direct routing.
+
+## How official MeshCore handles it
+
+The firmware temporarily changes recipient->out_path_len on the same ContactInfo object passed to sendRequest, forcing that request to flood, then restores it.
+
+## How the OpenHop stack handles it
+
+**OpenHop Core:** ContactProxy copies path fields at construction. send_path_discovery_req obtains proxy before ContactStore.update(contact), then builds from the stale object.
+
+## What needs to change
+
+Force the route on the packet explicitly or fetch the new proxy after updating. Avoid mutating shared contact state merely to select one send route; test a contact that starts with a known path.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`examples/companion_radio/MyMesh.cpp` L1587–L1614](https://github.com/meshcore-dev/MeshCore/blob/main/examples/companion_radio/MyMesh.cpp#L1587-L1614) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/companion/base_send.py` L285–L335](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/base_send.py#L285-L335) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/companion/contact_store.py` L11–L35](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/contact_store.py#L11-L35) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>examples/companion_radio/MyMesh.cpp</code> (L1587–L1614)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/examples/companion_radio/MyMesh.cpp#L1587-L1614)
+
+```cpp
+1587 |   } else if (cmd_frame[0] == CMD_SEND_PATH_DISCOVERY_REQ && cmd_frame[1] == 0 && len >= 2 + PUB_KEY_SIZE) {
+1588 |     uint8_t *pub_key = &cmd_frame[2];
+1589 |     ContactInfo *recipient = lookupContactByPubKey(pub_key, PUB_KEY_SIZE);
+1590 |     if (recipient) {
+1591 |       uint32_t tag, est_timeout;
+1592 |       // 'Path Discovery' is just a special case of flood + Telemetry req
+1593 |       uint8_t req_data[9];
+1594 |       req_data[0] = REQ_TYPE_GET_TELEMETRY_DATA;
+1595 |       req_data[1] = ~(TELEM_PERM_BASE);  // NEW: inverse permissions mask (ie. we only want BASE telemetry)
+1596 |       memset(&req_data[2], 0, 3);  // reserved
+1597 |       getRNG()->random(&req_data[5], 4);   // random blob to help make packet-hash unique
+1598 |       auto save = recipient->out_path_len;    // temporarily force sendRequest() to flood
+1599 |       recipient->out_path_len = OUT_PATH_UNKNOWN;
+1600 |       int result = sendRequest(*recipient, req_data, sizeof(req_data), tag, est_timeout);
+1601 |       recipient->out_path_len = save;
+1602 |       if (result == MSG_SEND_FAILED) {
+1603 |         writeErrFrame(ERR_CODE_TABLE_FULL);
+1604 |       } else {
+1605 |         clearPendingReqs();
+1606 |         pending_discovery = tag; // match this in onContactResponse()
+1607 |         out_frame[0] = RESP_CODE_SENT;
+1608 |         out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;
+1609 |         memcpy(&out_frame[2], &tag, 4);
+1610 |         memcpy(&out_frame[6], &est_timeout, 4);
+1611 |         _serial->writeFrame(out_frame, 10);
+1612 |       }
+1613 |     } else {
+1614 |       writeErrFrame(ERR_CODE_NOT_FOUND); // contact not found
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/companion/base_send.py</code> (L296–L312, L325–L335)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/base_send.py#L285-L335)
+
+```python
+296 |         # would encrypt/route to the wrong key.
+297 |         proxy = self.contacts.get_proxy_by_key(pub_key)
+298 |         if not proxy:
+299 |             return SentResult(success=False)
+300 |         tag_int = random.randint(0, 0xFFFFFFFF)
+301 |         tag_bytes = tag_int.to_bytes(4, "little")
+302 |         inv_perm = 0xFF & ~TELEM_PERM_BASE
+303 |         req_payload = tag_bytes + bytes([REQ_TYPE_GET_TELEMETRY_DATA, inv_perm, 0, 0, 0])
+304 |         old_path_len = contact.out_path_len
+305 |         old_path = contact.out_path
+306 |         contact.out_path_len = -1
+307 |         contact.out_path = b""
+308 |         self.contacts.update(contact)
+309 |         try:
+310 |             pkt, _ = PacketBuilder.create_protocol_request(
+311 |                 contact=proxy,
+312 |                 local_identity=self._identity,
+…
+325 |                 timeout_ms=DEFAULT_RESPONSE_TIMEOUT_MS,
+326 |             )
+327 |         except Exception as e:
+328 |             logger.error("Error in path discovery: %s", e)
+329 |             return SentResult(success=False)
+330 |         finally:
+331 |             current = self.contacts.get_by_key(pub_key)
+332 |             if current and current.out_path_len == -1:
+333 |                 current.out_path_len = old_path_len
+334 |                 current.out_path = old_path
+335 |                 self.contacts.update(current)
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/companion/contact_store.py</code> (L11–L35)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/contact_store.py#L11-L35)
+
+```python
+11 | class ContactProxy:
+12 |     """Wraps a Contact to provide the interface expected by MeshNode handlers.
+13 | 
+14 |     The existing handlers expect contacts with:
+15 |     - public_key as a hex string (not bytes)
+16 |     - name as a string
+17 |     - out_path as a list
+18 |     - type as an int
+19 |     """
+20 | 
+21 |     def __init__(self, contact: Contact):
+22 |         self._contact = contact
+23 |         self.public_key = contact.public_key.hex()
+24 |         self.name = contact.name
+25 |         self.type = contact.adv_type
+26 |         self.flags = contact.flags
+27 |         self.out_path = list(contact.out_path) if contact.out_path else []
+28 |         self.out_path_len = contact.out_path_len
+29 |         self.sync_since = contact.sync_since
+30 |         self.last_advert_timestamp = contact.last_advert_timestamp
+31 |         self.lastmod = contact.lastmod
+32 |         self.gps_lat = contact.gps_lat
+33 |         self.gps_lon = contact.gps_lon
+34 | 
+35 |     @property
+```
+
+</details>

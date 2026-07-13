@@ -1,0 +1,123 @@
+# BUG-069 — Disabled private-key import is acknowledged as successful
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **Medium** |
+| Area | Companion key management |
+| Affected components | OpenHop Core |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+Private-key import is intentionally disabled for a repeater-hosted virtual companion, because changing an identity affects routing, handler registration, persistence namespaces, and authenticated peer state. To fix it, keep identity import disabled in the repeater compatibility profile and return an explicit disabled or unsupported response.
+
+## What happens
+
+Private-key import is intentionally disabled for a repeater-hosted virtual companion, because changing an identity affects routing, handler registration, persistence namespaces, and authenticated peer state. The implementation nevertheless acknowledges every import as successful while leaving the identity unchanged.
+
+## How official MeshCore handles it
+
+When import support is enabled, MeshCore validates and persists the key, replaces the identity, invalidates cached shared secrets, and reports specific failures. When support is disabled, it reports that the operation is unavailable.
+
+## How the OpenHop stack handles it
+
+**OpenHop Core:** `_cmd_import_private_key` is an unconditional stub that writes `RESP_CODE_OK` without validating data or changing state. A client can believe that restore or rekey succeeded even though subsequent public keys and shared secrets still use the old identity.
+
+## What needs to change
+
+Keep identity import disabled in the repeater compatibility profile and return an explicit disabled or unsupported response. Do not implement remote rekey unless a future design provides an atomic repeater-owned migration for routing, handlers, storage, and cached cryptographic state.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`examples/companion_radio/MyMesh.cpp` L1478–L1497](https://github.com/meshcore-dev/MeshCore/blob/main/examples/companion_radio/MyMesh.cpp#L1478-L1497) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/companion/frame_server/commands_device.py` L327–L329](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/frame_server/commands_device.py#L327-L329) |
+| OpenHop Repeater | Affected implementation | [`repeater/identity_manager.py` L9–L34](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/identity_manager.py#L9-L34) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>examples/companion_radio/MyMesh.cpp</code> (L1478–L1497)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/examples/companion_radio/MyMesh.cpp#L1478-L1497)
+
+```cpp
+1478 |   } else if (cmd_frame[0] == CMD_IMPORT_PRIVATE_KEY && len >= 65) {
+1479 | #if ENABLE_PRIVATE_KEY_IMPORT
+1480 |     if (!mesh::LocalIdentity::validatePrivateKey(&cmd_frame[1])) {
+1481 |         writeErrFrame(ERR_CODE_ILLEGAL_ARG); // invalid key
+1482 |     } else {
+1483 |         mesh::LocalIdentity identity;
+1484 |         identity.readFrom(&cmd_frame[1], 64);
+1485 |         if (_store->saveMainIdentity(identity)) {
+1486 |           self_id = identity;
+1487 |           writeOKFrame();
+1488 |           // re-load contacts, to invalidate ecdh shared_secrets
+1489 |           resetContacts();
+1490 |           _store->loadContacts(this);
+1491 |         } else {
+1492 |           writeErrFrame(ERR_CODE_FILE_IO_ERROR);
+1493 |         }
+1494 |     }
+1495 | #else
+1496 |     writeDisabledFrame();
+1497 | #endif
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/companion/frame_server/commands_device.py</code> (L327–L329)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/frame_server/commands_device.py#L327-L329)
+
+```python
+327 |     async def _cmd_import_private_key(self, data: bytes) -> None:
+328 |         """Stub/no-op: private key is set from config; dynamic import may be supported later."""
+329 |         self._write_ok()
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Repeater</strong> — <code>repeater/identity_manager.py</code> (L9–L34)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/identity_manager.py#L9-L34)
+
+```python
+ 9 |         self.config = config
+10 |         self.identities: Dict[int, Tuple[Any, dict, str]] = {}
+11 |         self.named_identities: Dict[str, Tuple[Any, dict, str]] = {}
+12 |         self.registered_hashes: Dict[int, str] = {}
+13 | 
+14 |     def register_identity(self, name: str, identity, config: dict, identity_type: str):
+15 |         hash_byte = identity.get_public_key()[0]
+16 | 
+17 |         if hash_byte in self.identities:
+18 |             existing_name = self.registered_hashes.get(hash_byte, "unknown")
+19 |             logger.error(
+20 |                 f"Hash collision! Identity '{name}' (hash=0x{hash_byte:02X}) "
+21 |                 f"conflicts with existing identity '{existing_name}'"
+22 |             )
+23 |             return False
+24 | 
+25 |         self.identities[hash_byte] = (identity, config, identity_type)
+26 |         self.named_identities[name] = (identity, config, identity_type)
+27 |         self.registered_hashes[hash_byte] = f"{identity_type}:{name}"
+28 | 
+29 |         logger.info(
+30 |             f"Identity registered: name={name}, hash=0x{hash_byte:02X}, type={identity_type}"
+31 |         )
+32 |         return True
+33 | 
+34 |     def get_identity_by_hash(self, hash_byte: int) -> Optional[Tuple[Any, dict, str]]:
+```
+
+</details>

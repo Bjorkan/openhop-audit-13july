@@ -1,0 +1,139 @@
+# BUG-051 — A zero-hop direct binary request is reported as flood
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **Low** |
+| Area | Companion response metadata |
+| Affected components | OpenHop Core |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+OpenHop reports SentResult.is_flood when contact.out_path_len <= 0. In MeshCore, zero means a known zero-hop direct route; only OUT_PATH_UNKNOWN means flood. To fix it, set is_flood only for OUT_PATH_UNKNOWN, consistently using the same route predicate as the builder.
+
+## What happens
+
+OpenHop reports SentResult.is_flood when contact.out_path_len <= 0. In MeshCore, zero means a known zero-hop direct route; only OUT_PATH_UNKNOWN means flood.
+
+## How official MeshCore handles it
+
+sendRequest floods only when out_path_len == OUT_PATH_UNKNOWN. Otherwise it calls sendDirect, including an empty zero-hop path.
+
+## How the OpenHop stack handles it
+
+**OpenHop Core:** The packet builder correctly chooses direct for out_path_len >= 0, but send_binary_req returns is_flood=True for zero. RESP_CODE_SENT therefore contradicts the packet actually sent.
+
+## What needs to change
+
+Set is_flood only for OUT_PATH_UNKNOWN, consistently using the same route predicate as the builder.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`src/helpers/BaseChatMesh.cpp` L620–L665](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/BaseChatMesh.cpp#L620-L665) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/companion/base_send.py` L150–L200](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/base_send.py#L150-L200) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/helpers/BaseChatMesh.cpp</code> (L620–L665)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/BaseChatMesh.cpp#L620-L665)
+
+```cpp
+620 | int  BaseChatMesh::sendRequest(const ContactInfo& recipient, const uint8_t* req_data, uint8_t data_len, uint32_t& tag, uint32_t& est_timeout) {
+621 |   if (data_len > MAX_PACKET_PAYLOAD - 16) return MSG_SEND_FAILED;
+622 | 
+623 |   mesh::Packet* pkt;
+624 |   {
+625 |     uint8_t temp[MAX_PACKET_PAYLOAD];
+626 |     tag = getRTCClock()->getCurrentTimeUnique();
+627 |     memcpy(temp, &tag, 4);   // mostly an extra blob to help make packet_hash unique
+628 |     memcpy(&temp[4], req_data, data_len);
+629 | 
+630 |     pkt = createDatagram(PAYLOAD_TYPE_REQ, recipient.id, recipient.getSharedSecret(self_id), temp, 4 + data_len);
+631 |   }
+632 |   if (pkt) {
+633 |     uint32_t t = _radio->getEstAirtimeFor(pkt->getRawLength());
+634 |     if (recipient.out_path_len == OUT_PATH_UNKNOWN) {
+635 |       sendFloodScoped(recipient, pkt);
+636 |       est_timeout = calcFloodTimeoutMillisFor(t);
+637 |       return MSG_SEND_SENT_FLOOD;
+638 |     } else {
+639 |       sendDirect(pkt, recipient.out_path, recipient.out_path_len);
+640 |       est_timeout = calcDirectTimeoutMillisFor(t, recipient.out_path_len);
+641 |       return MSG_SEND_SENT_DIRECT;
+642 |     }
+643 |   }
+644 |   return MSG_SEND_FAILED;
+645 | }
+646 | 
+647 | int  BaseChatMesh::sendRequest(const ContactInfo& recipient, uint8_t req_type, uint32_t& tag, uint32_t& est_timeout) {
+648 |   mesh::Packet* pkt;
+649 |   {
+650 |     uint8_t temp[13];
+651 |     tag = getRTCClock()->getCurrentTimeUnique();
+652 |     memcpy(temp, &tag, 4);   // mostly an extra blob to help make packet_hash unique
+653 |     temp[4] = req_type;
+654 |     memset(&temp[5], 0, 4);  // reserved (possibly for 'since' param)
+655 |     getRNG()->random(&temp[9], 4);   // random blob to help make packet-hash unique
+656 | 
+657 |     pkt = createDatagram(PAYLOAD_TYPE_REQ, recipient.id, recipient.getSharedSecret(self_id), temp, sizeof(temp));
+658 |   }
+659 |   if (pkt) {
+660 |     uint32_t t = _radio->getEstAirtimeFor(pkt->getRawLength());
+661 |     if (recipient.out_path_len == OUT_PATH_UNKNOWN) {
+662 |       sendFloodScoped(recipient, pkt);
+663 |       est_timeout = calcFloodTimeoutMillisFor(t);
+664 |       return MSG_SEND_SENT_FLOOD;
+665 |     } else {
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/companion/base_send.py</code> (L150–L166, L189–L200)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/base_send.py#L150-L200)
+
+```python
+150 |             return SentResult(success=False)
+151 |         # Resolve by exact public key, not name: two contacts can share a name
+152 |         # (e.g. a re-keyed node) and get_by_name returns the first match, which
+153 |         # would encrypt/route to the wrong key.
+154 |         proxy = self.contacts.get_proxy_by_key(pub_key)
+155 |         if not proxy:
+156 |             return SentResult(success=False)
+157 |         request_type = data[0] if len(data) >= 1 else 0
+158 |         # C++ companion pattern (BaseChatMesh::sendRequest):
+159 |         #   tag = getRTCClock()->getCurrentTimeUnique()
+160 |         #   memcpy(temp, &tag, 4);  memcpy(&temp[4], req_data, data_len);
+161 |         # create_protocol_request packs: timestamp(4) + protocol_code(1) + extra_data.
+162 |         # The repeater echoes sender_timestamp (bytes 0-3) in the response.
+163 |         # So the timestamp IS the tag — we capture it from create_protocol_request.
+164 |         protocol_code = request_type
+165 |         req_payload = data[1:]  # request params only; timestamp provides uniqueness
+166 |         self.cleanup_expired_binary_requests()
+…
+189 |             if "tag_hex" in locals():
+190 |                 self._pending_binary_requests.pop(tag_hex, None)
+191 |             return SentResult(success=False)
+192 |         if not success:
+193 |             self._pending_binary_requests.pop(tag_hex, None)
+194 |             return SentResult(success=False)
+195 |         return SentResult(
+196 |             success=True,
+197 |             is_flood=contact.out_path_len <= 0,
+198 |             expected_ack=tag_int,
+199 |             timeout_ms=DEFAULT_RESPONSE_TIMEOUT_MS,
+200 |         )
+```
+
+</details>

@@ -1,0 +1,111 @@
+# BUG-013 — Direct messages are not capped at 160 bytes
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **Medium** |
+| Area | Text packet construction |
+| Affected components | OpenHop Core |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+OpenHop can construct a direct text message longer than MeshCore's MAX_TEXT_LEN of 160 bytes. This produces behavior MeshCore's sendMessage API explicitly rejects. To fix it, validate the UTF-8 encoded byte length, not Python character count, against 160. Apply MeshCore's reduced limit when extended-attempt metadata is present, and propagate a send failure.
+
+## What happens
+
+OpenHop can construct a direct text message longer than MeshCore's MAX_TEXT_LEN of 160 bytes. This produces behavior MeshCore's sendMessage API explicitly rejects.
+
+## How official MeshCore handles it
+
+BaseChatMesh::composeMsgPacket measures the text byte length and returns null above MAX_TEXT_LEN. Extended-attempt metadata has an additional two-byte allowance check.
+
+## How the OpenHop stack handles it
+
+**OpenHop Core:** PacketBuilder.create_text_message encodes the supplied Python string without a 160-byte protocol check. Any eventual failure is governed by OpenHop's larger packet limit, not MeshCore's text rule.
+
+## What needs to change
+
+Validate the UTF-8 encoded byte length, not Python character count, against 160. Apply MeshCore's reduced limit when extended-attempt metadata is present, and propagate a send failure.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`src/helpers/BaseChatMesh.cpp` L408–L427](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/BaseChatMesh.cpp#L408-L427) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/protocol/packet_builder.py` L935–L1072](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/protocol/packet_builder.py#L935-L1072) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/helpers/BaseChatMesh.cpp</code> (L408–L427)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/BaseChatMesh.cpp#L408-L427)
+
+```cpp
+408 | mesh::Packet* BaseChatMesh::composeMsgPacket(const ContactInfo& recipient, uint32_t timestamp, uint8_t attempt, const char *text, uint32_t& expected_ack) {
+409 |   int text_len = strlen(text);
+410 |   if (text_len > MAX_TEXT_LEN) return NULL;
+411 |   if (attempt > 3 && text_len > MAX_TEXT_LEN-2) return NULL;
+412 | 
+413 |   uint8_t temp[5+MAX_TEXT_LEN+1];
+414 |   memcpy(temp, &timestamp, 4);   // mostly an extra blob to help make packet_hash unique
+415 |   temp[4] = (attempt & 3);
+416 |   memcpy(&temp[5], text, text_len + 1);
+417 | 
+418 |   // calc expected ACK reply
+419 |   mesh::Utils::sha256((uint8_t *)&expected_ack, 4, temp, 5 + text_len, self_id.pub_key, PUB_KEY_SIZE);
+420 | 
+421 |   int len = 5 + text_len;
+422 |   if (attempt > 3) {
+423 |     temp[len++] = 0;  // null terminator
+424 |     temp[len++] = attempt;  // hide attempt number at tail end of payload
+425 |   }
+426 | 
+427 |   return createDatagram(PAYLOAD_TYPE_TXT_MSG, recipient.id, recipient.getSharedSecret(self_id), temp, len);
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/protocol/packet_builder.py</code> (L935–L944, L1032–L1048)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/protocol/packet_builder.py#L935-L1072)
+
+```python
+935 |     @staticmethod
+936 |     def create_text_message(
+937 |         contact: Any,
+938 |         local_identity: LocalIdentity,
+939 |         message: str,
+940 |         attempt: int = 0,
+941 |         message_type: str = "direct",
+942 |         out_path: Optional[list] = None,
+943 |         txt_type: int = 0,
+944 |         timestamp: Optional[int] = None,
+…
+1032 |                 and PathUtils.is_valid_path_len(contact_path_len)
+1033 |                 and PathUtils.get_path_byte_len(contact_path_len) <= len(routing_path)
+1034 |             ):
+1035 |                 pkt.set_path(bytearray(routing_path), contact_path_len)
+1036 |             else:
+1037 |                 # path_len encodes hop count in 6 bits (0-63); 64 would encode as 0
+1038 |                 if len(routing_path) == 64:
+1039 |                     logger.warning(
+1040 |                         "Path length 64 exceeds encodable hop count 63 (1-byte hashes), "
+1041 |                         "truncating to 63 bytes"
+1042 |                     )
+1043 |                     routing_path = routing_path[:63]
+1044 |                 pkt.set_path(bytearray(routing_path))
+1045 |         else:
+1046 |             pkt.path_len, pkt.path = 0, bytearray()
+1047 | 
+1048 |         pkt.payload = bytearray(payload)
+```
+
+</details>

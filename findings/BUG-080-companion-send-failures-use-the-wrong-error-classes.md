@@ -1,0 +1,163 @@
+# BUG-080 — Companion send failures use the wrong error classes
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **Low** |
+| Area | Companion command responses |
+| Affected components | OpenHop Core |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+Several OpenHop handlers cannot distinguish missing objects from packet allocation/send failure and return the wrong MeshCore error. Binary request and path-discovery failure become NOT_FOUND; self-advert construction failure becomes BAD_STATE. To fix it, return structured failure reasons from bridge methods and map missing contact, invalid state, and allocation/transmit failure separately to the exact firmware codes.
+
+## What happens
+
+Several OpenHop handlers cannot distinguish missing objects from packet allocation/send failure and return the wrong MeshCore error. Binary request and path-discovery failure become NOT_FOUND; self-advert construction failure becomes BAD_STATE.
+
+## How official MeshCore handles it
+
+For an existing request target whose send fails, MeshCore returns TABLE_FULL; absence alone returns NOT_FOUND. Failed self-advert packet allocation also returns TABLE_FULL.
+
+## How the OpenHop stack handles it
+
+**OpenHop Core:** _cmd_send_binary_req and _cmd_send_path_discovery_req map any false SentResult to NOT_FOUND. _cmd_send_self_advert maps any false result to BAD_STATE.
+
+## What needs to change
+
+Return structured failure reasons from bridge methods and map missing contact, invalid state, and allocation/transmit failure separately to the exact firmware codes.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`examples/companion_radio/MyMesh.cpp` L1236–L1255](https://github.com/meshcore-dev/MeshCore/blob/main/examples/companion_radio/MyMesh.cpp#L1236-L1255) |
+| MeshCore | Reference | [`examples/companion_radio/MyMesh.cpp` L1587–L1671](https://github.com/meshcore-dev/MeshCore/blob/main/examples/companion_radio/MyMesh.cpp#L1587-L1671) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/companion/frame_server/commands_device.py` L117–L120](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/frame_server/commands_device.py#L117-L120) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/companion/frame_server/commands_messaging.py` L147–L240](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/frame_server/commands_messaging.py#L147-L240) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>examples/companion_radio/MyMesh.cpp</code> (L1236–L1255)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/examples/companion_radio/MyMesh.cpp#L1236-L1255)
+
+```cpp
+1236 |   } else if (cmd_frame[0] == CMD_SEND_SELF_ADVERT) {
+1237 |     mesh::Packet* pkt;
+1238 |     if (_prefs.advert_loc_policy == ADVERT_LOC_NONE) {
+1239 |       pkt = createSelfAdvert(_prefs.node_name);
+1240 |     } else {
+1241 |       pkt = createSelfAdvert(_prefs.node_name, sensors.node_lat, sensors.node_lon);
+1242 |     }
+1243 |     if (pkt) {
+1244 |       if (len >= 2 && cmd_frame[1] == 1) { // optional param (1 = flood, 0 = zero hop)
+1245 |         unsigned long delay_millis = 0;
+1246 |         TransportKey default_scope;
+1247 |         memcpy(&default_scope.key, _prefs.default_scope_key, sizeof(default_scope.key));
+1248 |         sendFloodScoped(default_scope, pkt, delay_millis);
+1249 |       } else {
+1250 |         sendZeroHop(pkt);
+1251 |       }
+1252 |       writeOKFrame();
+1253 |     } else {
+1254 |       writeErrFrame(ERR_CODE_TABLE_FULL);
+1255 |     }
+```
+
+</details>
+
+<details>
+<summary><strong>MeshCore</strong> — <code>examples/companion_radio/MyMesh.cpp</code> (L1587–L1595, L1608–L1624)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/examples/companion_radio/MyMesh.cpp#L1587-L1671)
+
+```cpp
+1587 |   } else if (cmd_frame[0] == CMD_SEND_PATH_DISCOVERY_REQ && cmd_frame[1] == 0 && len >= 2 + PUB_KEY_SIZE) {
+1588 |     uint8_t *pub_key = &cmd_frame[2];
+1589 |     ContactInfo *recipient = lookupContactByPubKey(pub_key, PUB_KEY_SIZE);
+1590 |     if (recipient) {
+1591 |       uint32_t tag, est_timeout;
+1592 |       // 'Path Discovery' is just a special case of flood + Telemetry req
+1593 |       uint8_t req_data[9];
+1594 |       req_data[0] = REQ_TYPE_GET_TELEMETRY_DATA;
+1595 |       req_data[1] = ~(TELEM_PERM_BASE);  // NEW: inverse permissions mask (ie. we only want BASE telemetry)
+…
+1608 |         out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;
+1609 |         memcpy(&out_frame[2], &tag, 4);
+1610 |         memcpy(&out_frame[6], &est_timeout, 4);
+1611 |         _serial->writeFrame(out_frame, 10);
+1612 |       }
+1613 |     } else {
+1614 |       writeErrFrame(ERR_CODE_NOT_FOUND); // contact not found
+1615 |     }
+1616 |   } else if (cmd_frame[0] == CMD_SEND_TELEMETRY_REQ && len >= 4 + PUB_KEY_SIZE) {  // can deprecate, in favour of CMD_SEND_BINARY_REQ
+1617 |     uint8_t *pub_key = &cmd_frame[4];
+1618 |     ContactInfo *recipient = lookupContactByPubKey(pub_key, PUB_KEY_SIZE);
+1619 |     if (recipient) {
+1620 |       uint32_t tag, est_timeout;
+1621 |       int result = sendRequest(*recipient, REQ_TYPE_GET_TELEMETRY_DATA, tag, est_timeout);
+1622 |       if (result == MSG_SEND_FAILED) {
+1623 |         writeErrFrame(ERR_CODE_TABLE_FULL);
+1624 |       } else {
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/companion/frame_server/commands_device.py</code> (L117–L120)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/frame_server/commands_device.py#L117-L120)
+
+```python
+117 |     async def _cmd_send_self_advert(self, data: bytes) -> None:
+118 |         flood = len(data) >= 1 and data[0] == 1
+119 |         ok = await self.bridge.advertise(flood=flood)
+120 |         self._write_ok() if ok else self._write_err(ERR_CODE_BAD_STATE)
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/companion/frame_server/commands_messaging.py</code> (L147–L155, L210–L226)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/frame_server/commands_messaging.py#L147-L240)
+
+```python
+147 |     async def _cmd_send_binary_req(self, data: bytes) -> None:
+148 |         if len(data) < PUB_KEY_SIZE + 1:
+149 |             self._write_err(ERR_CODE_ILLEGAL_ARG)
+150 |             return
+151 |         pubkey = data[:PUB_KEY_SIZE]
+152 |         req_data = data[PUB_KEY_SIZE:]
+153 |         send_binary_req = getattr(self.bridge, "send_binary_req", None)
+154 |         if not send_binary_req:
+155 |             self._write_err(ERR_CODE_UNSUPPORTED_CMD)
+…
+210 |             logger.error("send_control_data error: %s", e, exc_info=True)
+211 |             self._write_err(ERR_CODE_ILLEGAL_ARG)
+212 |             return
+213 |         if ok:
+214 |             self._write_ok()
+215 |         else:
+216 |             self._write_err(ERR_CODE_TABLE_FULL)
+217 | 
+218 |     async def _cmd_send_path_discovery_req(self, data: bytes) -> None:
+219 |         logger.info(
+220 |             "Path discovery request received (cmd 52), data_len=%s",
+221 |             len(data),
+222 |         )
+223 |         if len(data) < 1 + PUB_KEY_SIZE:
+224 |             self._write_err(ERR_CODE_ILLEGAL_ARG)
+225 |             return
+226 |         pub_key = data[1 : 1 + PUB_KEY_SIZE]
+```
+
+</details>

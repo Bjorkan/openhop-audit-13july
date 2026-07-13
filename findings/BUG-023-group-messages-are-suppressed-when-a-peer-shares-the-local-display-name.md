@@ -1,0 +1,119 @@
+# BUG-023 — Group messages are suppressed when a peer shares the local display name
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **Medium** |
+| Area | Group message delivery |
+| Affected components | OpenHop Core |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+OpenHop decides that a group message is its own echo solely by parsing the sender display name and comparing it with the local name. Names are not unique or authenticated, so another node with the same name is hidden. To fix it, do not infer origin from the display-name prefix. If echo suppression is needed, track locally transmitted packet hashes with the correct MeshCore hash and expiry, then match the received packet identity.
+
+## What happens
+
+OpenHop decides that a group message is its own echo solely by parsing the sender display name and comparing it with the local name. Names are not unique or authenticated, so another node with the same name is hidden.
+
+## How official MeshCore handles it
+
+MeshCore delivers a successfully decrypted group message through onChannelMessageRecv. The core does not use the human-readable prefix as packet identity.
+
+## How the OpenHop stack handles it
+
+**OpenHop Core:** GroupTextHandler marks any matching sender_name as outgoing and suppresses the NEW_CHANNEL_MESSAGE publication.
+
+## What needs to change
+
+Do not infer origin from the display-name prefix. If echo suppression is needed, track locally transmitted packet hashes with the correct MeshCore hash and expiry, then match the received packet identity.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`src/helpers/BaseChatMesh.cpp` L367–L387](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/BaseChatMesh.cpp#L367-L387) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/node/handlers/group_text.py` L250–L310](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/node/handlers/group_text.py#L250-L310) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/helpers/BaseChatMesh.cpp</code> (L367–L387)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/BaseChatMesh.cpp#L367-L387)
+
+```cpp
+367 | void BaseChatMesh::onGroupDataRecv(mesh::Packet* packet, uint8_t type, const mesh::GroupChannel& channel, uint8_t* data, size_t len) {
+368 |   if (type == PAYLOAD_TYPE_GRP_TXT) {
+369 |     if (len < 5) {
+370 |       MESH_DEBUG_PRINTLN("onGroupDataRecv: dropping short group text payload len=%d", (uint32_t)len);
+371 |       return;
+372 |     }
+373 | 
+374 |     uint8_t txt_type = data[4];
+375 |     if ((txt_type >> 2) != 0) {
+376 |       MESH_DEBUG_PRINTLN("onGroupDataRecv: dropping unsupported group text type=%d", (uint32_t)txt_type);
+377 |       return;
+378 |     }
+379 | 
+380 |     uint32_t timestamp;
+381 |     memcpy(&timestamp, data, 4);
+382 | 
+383 |     // len can be > original length, but 'text' will be padded with zeroes
+384 |     data[len] = 0; // need to make a C string again, with null terminator
+385 | 
+386 |     // notify UI  of this new message
+387 |     onChannelMessageRecv(channel, packet, timestamp, (const char *) &data[5]);  // let UI know
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/node/handlers/group_text.py</code> (L255–L271, L293–L309)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/node/handlers/group_text.py#L250-L310)
+
+```python
+255 | 
+256 |             # Extract sender and message from the content
+257 |             sender_name, message_body = self._extract_sender_from_message(parsed_message["content"])
+258 | 
+259 |             # Store the message content in the packet for echo detection
+260 |             # Use the existing decrypted dictionary to store our data
+261 |             packet.decrypted["group_text_data"] = {
+262 |                 "text": message_body,
+263 |                 "sender_name": sender_name,
+264 |                 "channel_name": channel_name,
+265 |                 "channel_hash": channel_hash,
+266 |                 "message_type": parsed_message["message_type"],
+267 |                 "timestamp": parsed_message["timestamp"],
+268 |                 "flags": parsed_message["flags"],
+269 |                 "full_content": parsed_message["content"],
+270 |             }
+271 | 
+…
+293 | 
+294 |         except Exception as e:
+295 |             self.log(f"Error processing group text message: {e}")
+296 |             import traceback
+297 | 
+298 |             self.log(f"Traceback: {traceback.format_exc()}")
+299 | 
+300 |     async def _save_and_broadcast_group_message(
+301 |         self, packet, sender_name, message_body, channel_name, timestamp, is_outgoing: bool = False
+302 |     ):
+303 |         """Save the group message to database and broadcast via WebSocket."""
+304 |         try:
+305 |             message_id = packet.get_packet_hash_hex(16)
+306 | 
+307 |             # Do not publish NEW_CHANNEL_MESSAGE for our own messages (inject + echoes).
+308 |             # The client already has the sent message; publishing per echo would spam the event.
+309 |             if is_outgoing:
+```
+
+</details>

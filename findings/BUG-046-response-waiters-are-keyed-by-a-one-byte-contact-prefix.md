@@ -1,0 +1,175 @@
+# BUG-046 — Response waiters are keyed by a one-byte contact prefix
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **Medium** |
+| Area | Request/response correlation |
+| Affected components | OpenHop Core |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+OpenHop stores one response callback per source-hash byte. Two simultaneous contacts sharing their first public-key byte overwrite or consume each other's waiter, even though authenticated decryption can identify the full sender. To fix it, correlate by request tag and full matched public key. Support multiple outstanding requests per contact and keep the one-byte prefix only as a candidate-search hint.
+
+## What happens
+
+OpenHop stores one response callback per source-hash byte. Two simultaneous contacts sharing their first public-key byte overwrite or consume each other's waiter, even though authenticated decryption can identify the full sender.
+
+## How official MeshCore handles it
+
+MeshCore response payloads echo a four-byte request tag for binary/status/telemetry operations, and companion handling receives the fully matched Contact after decryption. It does not reduce all pending work to one source byte.
+
+## How the OpenHop stack handles it
+
+**OpenHop Core:** ProtocolResponseHandler._response_callbacks is indexed by src_hash = payload[1], and set_response_callback replaces any existing callback at that byte.
+
+## What needs to change
+
+Correlate by request tag and full matched public key. Support multiple outstanding requests per contact and keep the one-byte prefix only as a candidate-search hint.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`examples/companion_radio/MyMesh.cpp` L668–L725](https://github.com/meshcore-dev/MeshCore/blob/main/examples/companion_radio/MyMesh.cpp#L668-L725) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/node/handlers/protocol_response.py` L200–L275](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/node/handlers/protocol_response.py#L200-L275) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/companion/base_send.py` L811–L976](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/base_send.py#L811-L976) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>examples/companion_radio/MyMesh.cpp</code> (L668–L680, L709–L725)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/examples/companion_radio/MyMesh.cpp#L668-L725)
+
+```cpp
+668 | void MyMesh::onContactResponse(const ContactInfo &contact, const uint8_t *data, uint8_t len) {
+669 |   uint32_t tag;
+670 |   memcpy(&tag, data, 4);
+671 | 
+672 |   if (pending_login && memcmp(&pending_login, contact.id.pub_key, 4) == 0) { // check for login response
+673 |     // yes, is response to pending sendLogin()
+674 |     pending_login = 0;
+675 | 
+676 |     int i = 0;
+677 |     if (memcmp(&data[4], "OK", 2) == 0) { // legacy Repeater login OK response
+678 |       out_frame[i++] = PUSH_CODE_LOGIN_SUCCESS;
+679 |       out_frame[i++] = 0; // legacy: is_admin = false
+680 |       memcpy(&out_frame[i], contact.id.pub_key, 6);
+…
+709 |     int i = 0;
+710 |     out_frame[i++] = PUSH_CODE_STATUS_RESPONSE;
+711 |     out_frame[i++] = 0; // reserved
+712 |     memcpy(&out_frame[i], contact.id.pub_key, 6);
+713 |     i += 6; // pub_key_prefix
+714 |     memcpy(&out_frame[i], &data[4], len - 4);
+715 |     i += (len - 4);
+716 |     _serial->writeFrame(out_frame, i);
+717 |   } else if (len > 4 && tag == pending_telemetry) {  // check for matching response tag
+718 |     pending_telemetry = 0;
+719 | 
+720 |     int i = 0;
+721 |     out_frame[i++] = PUSH_CODE_TELEMETRY_RESPONSE;
+722 |     out_frame[i++] = 0; // reserved
+723 |     memcpy(&out_frame[i], contact.id.pub_key, 6);
+724 |     i += 6; // pub_key_prefix
+725 |     memcpy(&out_frame[i], &data[4], len - 4);
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/node/handlers/protocol_response.py</code> (L231–L247, L259–L275)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/node/handlers/protocol_response.py#L200-L275)
+
+```python
+231 |                 )
+232 | 
+233 |             # Proceed if we have a callback for this source or the binary (path-discovery)
+234 |             # callback. PATH packets always proceed regardless of waiters so that the
+235 |             # firmware-equivalent path learning in _decrypt_protocol_response
+236 |             # (_update_contact_path + reciprocal PATH) runs for the login PATH-return,
+237 |             # which arrives before any stats/telemetry waiter is registered.
+238 |             if (
+239 |                 src_hash not in self._response_callbacks
+240 |                 and self._binary_response_callback is None
+241 |                 and pkt_type != PAYLOAD_TYPE_PATH
+242 |             ):
+243 |                 return
+244 | 
+245 |             # Try to decrypt the response
+246 |             (
+247 |                 success,
+…
+259 |             # or other short responses and delay stats load after login.
+260 |             if src_hash in self._response_callbacks:
+261 |                 if not success:
+262 |                     return
+263 |                 if self._is_login_response(pkt, raw_decrypted):
+264 |                     # Login responses are handled by LoginResponseHandler; do not deliver to
+265 |                     # stats/telemetry waiter.
+266 |                     return
+267 |                 callback = self._response_callbacks[src_hash]
+268 |                 if callback:
+269 |                     if parsed_data.get("type") == "telemetry":
+270 |                         self._log(
+271 |                             f"[ProtocolResponse] Delivering telemetry to waiter "
+272 |                             f"(src=0x{src_hash:02X}, {parsed_data.get('sensor_count', 0)} sensors)"
+273 |                         )
+274 |                     callback(success, decoded_text, parsed_data)
+275 |                 return
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/companion/base_send.py</code> (L880–L896, L945–L961)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/base_send.py#L811-L976)
+
+```python
+880 |         proxy = self.contacts.get_proxy_by_key(pub_key)
+881 |         if not proxy:
+882 |             return {"success": False, "reason": "Contact not found"}
+883 |         proto_handler = self._get_protocol_response_handler()
+884 |         if not proto_handler:
+885 |             return {"success": False, "reason": "Protocol handler not available"}
+886 |         contact_hash = proxy.dest_hash
+887 |         waiter = ResponseWaiter()
+888 |         proto_handler.set_response_callback(contact_hash, waiter.callback)
+889 |         try:
+890 |             await self._wait_for_path_propagation(proxy, "telemetry request")
+891 |             inv = PacketBuilder._compute_inverse_perm_mask(
+892 |                 want_base, want_location, want_environment
+893 |             )
+894 |             result = await self._request_with_retries(
+895 |                 lambda: PacketBuilder.create_protocol_request(
+896 |                     contact=proxy,
+…
+945 |         proxy = self.contacts.get_proxy_by_key(pub_key)
+946 |         if not proxy:
+947 |             return {"success": False, "reason": "Contact not found"}
+948 |         proto_handler = self._get_protocol_response_handler()
+949 |         if not proto_handler:
+950 |             return {"success": False, "reason": "Protocol handler not available"}
+951 |         contact_hash = proxy.dest_hash
+952 |         waiter = ResponseWaiter()
+953 |         proto_handler.set_response_callback(contact_hash, waiter.callback)
+954 |         try:
+955 |             result = await self._request_with_retries(
+956 |                 lambda: PacketBuilder.create_protocol_request(
+957 |                     contact=proxy,
+958 |                     local_identity=self._identity,
+959 |                     protocol_code=protocol_code,
+960 |                     data=data,
+961 |                 )[0],
+```
+
+</details>

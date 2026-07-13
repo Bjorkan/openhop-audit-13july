@@ -1,0 +1,133 @@
+# BUG-040 — Flood packets bypass MeshCore's reception-quality delay
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **Medium** |
+| Area | Radio receive scheduling |
+| Affected components | OpenHop Core |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+MeshCore deliberately delays processing of flood packets based on packet score and airtime. This helps better receptions win and suppresses redundant repeats. OpenHop dispatches every first-seen flood immediately. To fix it, port packet scoring and the delayed inbound queue, including threshold, cap, cancellation/deduplication interaction, and monotonic timing. Validate ordering with two copies of one flood at different scores.
+
+## What happens
+
+MeshCore deliberately delays processing of flood packets based on packet score and airtime. This helps better receptions win and suppresses redundant repeats. OpenHop dispatches every first-seen flood immediately.
+
+## How official MeshCore handles it
+
+Dispatcher::checkRecv calculates radio packetScore and estimated airtime, calls calcRxDelay, and queues flood input until the score-derived time, capped by MAX_RX_DELAY_MILLIS.
+
+## How the OpenHop stack handles it
+
+**OpenHop Core:** The receive coroutine records RSSI/SNR and then proceeds directly through dedupe and handler dispatch; signal quality never affects receive ordering.
+
+## What needs to change
+
+Port packet scoring and the delayed inbound queue, including threshold, cap, cancellation/deduplication interaction, and monotonic timing. Validate ordering with two copies of one flood at different scores.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`src/Dispatcher.cpp` L190–L270](https://github.com/meshcore-dev/MeshCore/blob/main/src/Dispatcher.cpp#L190-L270) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/node/dispatcher.py` L373–L466](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/node/dispatcher.py#L373-L466) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/Dispatcher.cpp</code> (L198–L214, L240–L256)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/Dispatcher.cpp#L190-L270)
+
+```cpp
+198 |       logRxRaw(_radio->getLastSNR(), _radio->getLastRSSI(), raw, len);
+199 | 
+200 |       pkt = _mgr->allocNew();
+201 |       if (pkt == NULL) {
+202 |         MESH_DEBUG_PRINTLN("%s Dispatcher::checkRecv(): WARNING: received data, no unused packets available!", getLogDateTime());
+203 |       } else {
+204 |         if (tryParsePacket(pkt, raw, len)) {
+205 |           pkt->_snr = _radio->getLastSNR() * 4.0f;
+206 |           score = _radio->packetScore(_radio->getLastSNR(), len);
+207 |           air_time = _radio->getEstAirtimeFor(len);
+208 |           rx_air_time += air_time;
+209 |         } else {
+210 |           _mgr->free(pkt);  // put back into pool
+211 |           pkt = NULL;
+212 |         }
+213 |       }
+214 |     } else {
+…
+240 |       n_recv_flood++;
+241 | 
+242 |       int _delay = calcRxDelay(score, air_time);
+243 |       if (_delay < 50) {
+244 |         MESH_DEBUG_PRINTLN("%s Dispatcher::checkRecv(), score delay below threshold (%d)", getLogDateTime(), _delay);
+245 |         processRecvPacket(pkt);   // is below the score delay threshold, so process immediately
+246 |       } else {
+247 |         MESH_DEBUG_PRINTLN("%s Dispatcher::checkRecv(), score delay is: %d millis", getLogDateTime(), _delay);
+248 |         if (_delay > MAX_RX_DELAY_MILLIS) {
+249 |           _delay = MAX_RX_DELAY_MILLIS;
+250 |         }
+251 |         _mgr->queueInbound(pkt, futureMillis(_delay)); // add to delayed inbound queue
+252 |       }
+253 |     } else {
+254 |       n_recv_direct++;
+255 |       processRecvPacket(pkt);
+256 |     }
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/node/dispatcher.py</code> (L387–L403, L416–L432)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/node/dispatcher.py#L373-L466)
+
+```python
+387 |         if snr is not None:
+388 |             snr_val = snr
+389 |         elif hasattr(self.radio, "get_last_snr"):
+390 |             snr_val = self.radio.get_last_snr()
+391 |         else:
+392 |             snr_val = 0.0
+393 |         for cb in self._raw_rx_subscribers:
+394 |             try:
+395 |                 if inspect.iscoroutinefunction(cb):
+396 |                     await cb(data, rssi_val, snr_val)
+397 |                 else:
+398 |                     cb(data, rssi_val, snr_val)
+399 |             except Exception as e:
+400 |                 self._log(f"Raw RX subscriber error: {e}")
+401 | 
+402 |         # Blacklist check uses raw-frame hash (catches known-bad bytes before parsing)
+403 |         raw_hash = self.packet_filter.generate_hash(data)
+…
+416 |             return
+417 | 
+418 |         # Packets at max hops for their path encoding must not be retransmitted
+419 |         if PathUtils.is_path_at_max_hops(pkt.path_len):
+420 |             pkt.mark_do_not_retransmit()
+421 | 
+422 |         # Use per-packet rssi/snr when provided (avoids race); else fall back to radio last values
+423 |         pkt._rssi = rssi if rssi is not None else self.radio.get_last_rssi()
+424 |         pkt._snr = snr if snr is not None else self.radio.get_last_snr()
+425 | 
+426 |         # Let the node know about this packet for analysis (statistics, caching, etc.)
+427 |         if self.packet_analysis_callback:
+428 |             try:
+429 |                 if inspect.iscoroutinefunction(self.packet_analysis_callback):
+430 |                     await self.packet_analysis_callback(pkt, data)
+431 |                 else:
+432 |                     self.packet_analysis_callback(pkt, data)
+```
+
+</details>
