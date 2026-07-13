@@ -1,0 +1,148 @@
+# BUG-050 — Transport flood and direct routes use incorrect retransmit delays
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **High** |
+| Area | Repeater timing |
+| Affected components | OpenHop Repeater |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+`_calculate_tx_delay` treats only the exact `ROUTE_TYPE_FLOOD` value as flood. `TRANSPORT_FLOOD` receives the fixed direct delay. Direct routing also uses a fixed number of seconds, while the flood formula produces roughly half of MeshCore's random window. To fix it, use `packet.is_route_flood` and `packet.is_route_direct`, and implement the MeshCore formula using the same packet length, airtime, and factors. Keep origin-send delay separate from received-packet retransmit delay. Add deterministic RNG fixtures for all four route values.
+
+## What happens
+
+`_calculate_tx_delay` treats only the exact `ROUTE_TYPE_FLOOD` value as flood. `TRANSPORT_FLOOD` receives the fixed direct delay. Direct routing also uses a fixed number of seconds, while the flood formula produces roughly half of MeshCore's random window.
+
+## How official MeshCore handles it
+
+Both flood variants use a random delay from zero through five airtime units, where the unit is actual airtime multiplied by `tx_delay_factor`. Both direct variants use the corresponding random window with `direct_tx_delay_factor`.
+
+## How the OpenHop stack handles it
+
+**OpenHop Repeater:** `process_packet` classifies transport flood as flood for path mutation, then passes it to a delay function that classifies the same packet as direct. Ordinary direct packets always wait exactly `direct_tx_delay_factor` seconds regardless of airtime.
+
+## What needs to change
+
+Use `packet.is_route_flood` and `packet.is_route_direct`, and implement the MeshCore formula using the same packet length, airtime, and factors. Keep origin-send delay separate from received-packet retransmit delay. Add deterministic RNG fixtures for all four route values.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`examples/simple_repeater/MyMesh.cpp` L543–L549](https://github.com/meshcore-dev/MeshCore/blob/main/examples/simple_repeater/MyMesh.cpp#L543-L549) |
+| OpenHop Repeater | Affected implementation | [`repeater/engine.py` L1051–L1097](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/engine.py#L1051-L1097) |
+| OpenHop Repeater | Affected implementation | [`repeater/engine.py` L1109–L1128](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/engine.py#L1109-L1128) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>examples/simple_repeater/MyMesh.cpp</code> (L543–L549)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/examples/simple_repeater/MyMesh.cpp#L543-L549)
+
+```cpp
+543 | uint32_t MyMesh::getRetransmitDelay(const mesh::Packet *packet) {
+544 |   uint32_t t = (_radio->getEstAirtimeFor(packet->getPathByteLen() + packet->payload_len + 2) * _prefs.tx_delay_factor);
+545 |   return getRNG()->nextInt(0, 5*t + 1);
+546 | }
+547 | uint32_t MyMesh::getDirectRetransmitDelay(const mesh::Packet *packet) {
+548 |   uint32_t t = (_radio->getEstAirtimeFor(packet->getPathByteLen() + packet->payload_len + 2) * _prefs.direct_tx_delay_factor);
+549 |   return getRNG()->nextInt(0, 5*t + 1);
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Repeater</strong> — <code>repeater/engine.py</code> (L1051–L1097)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/engine.py#L1051-L1097)
+
+```python
+1051 |     def _calculate_tx_delay(self, packet: Packet, snr: float = 0.0) -> float:
+1052 | 
+1053 |         packet_len = packet.get_raw_length()
+1054 |         airtime_ms = self.airtime_mgr.calculate_airtime(packet_len)
+1055 | 
+1056 |         route_type = packet.header & PH_ROUTE_MASK
+1057 | 
+1058 |         # Base delay calculations
+1059 |         # this part took me along time to get right well i hope i got it right ;-)
+1060 | 
+1061 |         if route_type == ROUTE_TYPE_FLOOD:
+1062 |             # Flood packets: random(0-5) * (airtime * 52/50 / 2) * tx_delay_factor
+1063 |             # This creates collision avoidance with tunable delay
+1064 |             base_delay_ms = (airtime_ms * 52 / 50) / 2.0  # From C++ implementation
+1065 |             random_mult = secrets.randbelow(5001) / 1000.0
+1066 |             delay_ms = base_delay_ms * random_mult * self.tx_delay_factor
+1067 |             delay_s = delay_ms / 1000.0
+1068 |         else:  # DIRECT
+1069 |             # Direct packets: use direct_tx_delay_factor (already in seconds)
+1070 |             # direct_tx_delay_factor is stored as seconds in config
+1071 |             delay_s = self.direct_tx_delay_factor
+1072 | 
+1073 |         # Apply score-based delay adjustment ONLY if delay >= 50ms threshold
+1074 |         # (matching C++ reactive behavior in Dispatcher::calcRxDelay)
+1075 |         if delay_s >= 0.05 and self.use_score_for_tx:
+1076 |             score = self.calculate_packet_score(snr, packet_len)
+1077 |             # Higher score = shorter delay: max(0.2, 1.0 - score)
+1078 |             # score 1.0 → multiplier 0.2 (20% of original)
+1079 |             # score 0.0 → multiplier 1.0 (100% of original)
+1080 |             score_multiplier = max(0.2, 1.0 - score)
+1081 |             delay_s = delay_s * score_multiplier
+1082 |             if logger.isEnabledFor(logging.DEBUG):
+1083 |                 logger.debug(
+1084 |                     f"Congestion detected (delay >= 50ms), score={score:.2f}, "
+1085 |                     f"delay multiplier={score_multiplier:.2f}"
+1086 |                 )
+1087 | 
+1088 |         # Cap at 5 seconds maximum
+1089 |         delay_s = min(delay_s, 5.0)
+1090 | 
+1091 |         if logger.isEnabledFor(logging.DEBUG):
+1092 |             logger.debug(
+1093 |                 f"Route={'FLOOD' if route_type == ROUTE_TYPE_FLOOD else 'DIRECT'}, "
+1094 |                 f"len={packet_len}B, airtime={airtime_ms:.1f}ms, delay={delay_s:.3f}s"
+1095 |             )
+1096 | 
+1097 |         return delay_s
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Repeater</strong> — <code>repeater/engine.py</code> (L1109–L1128)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/engine.py#L1109-L1128)
+
+```python
+1109 |         direct_forward / is_duplicate / mark_seen — reducing SHA-256 calls
+1110 |         from 3 per forwarded packet to 1.
+1111 |         """
+1112 |         route_type = packet.header & PH_ROUTE_MASK
+1113 | 
+1114 |         if route_type == ROUTE_TYPE_FLOOD or route_type == ROUTE_TYPE_TRANSPORT_FLOOD:
+1115 |             fwd_pkt = self.flood_forward(packet, packet_hash=packet_hash)
+1116 |             if fwd_pkt is None:
+1117 |                 return None
+1118 |             delay = self._calculate_tx_delay(fwd_pkt, snr)
+1119 |             return fwd_pkt, delay
+1120 | 
+1121 |         elif route_type == ROUTE_TYPE_DIRECT or route_type == ROUTE_TYPE_TRANSPORT_DIRECT:
+1122 |             fwd_pkt = self.direct_forward(packet, packet_hash=packet_hash)
+1123 |             if fwd_pkt is None:
+1124 |                 return None
+1125 |             delay = self._calculate_tx_delay(fwd_pkt, snr)
+1126 |             return fwd_pkt, delay
+1127 | 
+1128 |         else:
+```
+
+</details>

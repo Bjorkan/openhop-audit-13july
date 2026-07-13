@@ -1,0 +1,130 @@
+# BUG-032 — Encoded contact path length is parsed as signed
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **High** |
+| Area | Companion contact storage |
+| Affected components | OpenHop Core |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+The path-length byte uses its top two bits to encode hash width and 0xFF for unknown. OpenHop decodes it with signed int8. The valid 3-byte-hash mode becomes negative and are later mistaken for unknown/invalid paths. To fix it, read the field as unsigned. Convert only the single sentinel 0xFF to an internal unknown representation at a clearly defined boundary, and preserve every other encoded byte.
+
+## What happens
+
+The path-length byte uses its top two bits to encode hash width and 0xFF for unknown. OpenHop decodes it with signed int8. The valid 3-byte-hash mode becomes negative and are later mistaken for unknown/invalid paths.
+
+## How official MeshCore handles it
+
+CMD_ADD_UPDATE_CONTACT reads out_path_len as uint8_t and retains all encoded bits for Packet path helpers.
+
+## How the OpenHop stack handles it
+
+**OpenHop Core:** commands_contacts uses struct.unpack_from("<b"), yielding -128 through -2 for wire values 0x80 through 0xFE.
+
+## What needs to change
+
+Read the field as unsigned. Convert only the single sentinel 0xFF to an internal unknown representation at a clearly defined boundary, and preserve every other encoded byte.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`examples/companion_radio/MyMesh.cpp` L189–L211](https://github.com/meshcore-dev/MeshCore/blob/main/examples/companion_radio/MyMesh.cpp#L189-L211) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/companion/frame_server/commands_contacts.py` L64–L107](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/frame_server/commands_contacts.py#L64-L107) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>examples/companion_radio/MyMesh.cpp</code> (L189–L211)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/examples/companion_radio/MyMesh.cpp#L189-L211)
+
+```cpp
+189 | void MyMesh::updateContactFromFrame(ContactInfo &contact, uint32_t& last_mod, const uint8_t *frame, int len) {
+190 |   int i = 0;
+191 |   uint8_t code = frame[i++]; // eg. CMD_ADD_UPDATE_CONTACT
+192 |   memcpy(contact.id.pub_key, &frame[i], PUB_KEY_SIZE);
+193 |   i += PUB_KEY_SIZE;
+194 |   contact.type = frame[i++];
+195 |   contact.flags = frame[i++];
+196 |   contact.out_path_len = frame[i++];
+197 |   memcpy(contact.out_path, &frame[i], MAX_PATH_SIZE);
+198 |   i += MAX_PATH_SIZE;
+199 |   memcpy(contact.name, &frame[i], 32);
+200 |   i += 32;
+201 |   memcpy(&contact.last_advert_timestamp, &frame[i], 4);
+202 |   i += 4;
+203 |   if (len >= i + 8) { // optional fields
+204 |     memcpy(&contact.gps_lat, &frame[i], 4);
+205 |     i += 4;
+206 |     memcpy(&contact.gps_lon, &frame[i], 4);
+207 |     i += 4;
+208 |     if (len >= i + 4) {
+209 |       memcpy(&last_mod, &frame[i], 4);
+210 |     }
+211 |   }
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/companion/frame_server/commands_contacts.py</code> (L64–L107)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/frame_server/commands_contacts.py#L64-L107)
+
+```python
+ 64 |     async def _cmd_add_update_contact(self, data: bytes) -> None:
+ 65 |         if len(data) < 36:
+ 66 |             self._write_err(ERR_CODE_ILLEGAL_ARG)
+ 67 |             return
+ 68 |         pubkey = data[0:PUB_KEY_SIZE]
+ 69 |         adv_type = data[32]
+ 70 |         flags = data[33]
+ 71 |         out_path_len = struct.unpack_from("<b", data, 34)[0]
+ 72 |         out_path_end = 35 + MAX_PATH_SIZE
+ 73 |         if len(data) >= out_path_end:
+ 74 |             out_path = data[35:out_path_end].rstrip(b"\x00")
+ 75 |         else:
+ 76 |             out_path = data[35 : len(data)].rstrip(b"\x00") if len(data) > 35 else b""
+ 77 |         name_start = 35 + MAX_PATH_SIZE
+ 78 |         name_end = name_start + CONTACT_NAME_SIZE
+ 79 |         if len(data) >= name_end:
+ 80 |             name_raw = data[name_start:name_end]
+ 81 |         elif len(data) > name_start:
+ 82 |             name_raw = data[name_start : len(data)].ljust(CONTACT_NAME_SIZE, b"\x00")
+ 83 |         else:
+ 84 |             name_raw = b"\x00" * CONTACT_NAME_SIZE
+ 85 |         name = name_raw.split(b"\x00")[0].decode("utf-8", errors="replace")
+ 86 |         last_advert = 0
+ 87 |         if len(data) >= name_end + 4:
+ 88 |             last_advert = struct.unpack_from("<I", data, name_end)[0]
+ 89 |         gps_lat, gps_lon = 0.0, 0.0
+ 90 |         if len(data) >= name_end + 4 + 8:
+ 91 |             gps_lat = struct.unpack_from("<i", data, name_end + 4)[0] / 1e6
+ 92 |             gps_lon = struct.unpack_from("<i", data, name_end + 8)[0] / 1e6
+ 93 |         lastmod = int(time.time())
+ 94 |         if len(data) >= name_end + 4 + 12:
+ 95 |             lastmod = struct.unpack_from("<I", data, name_end + 12)[0]
+ 96 |         contact = Contact(
+ 97 |             public_key=pubkey,
+ 98 |             name=name,
+ 99 |             adv_type=adv_type,
+100 |             flags=flags,
+101 |             out_path_len=out_path_len,
+102 |             out_path=out_path,
+103 |             last_advert_timestamp=last_advert,
+104 |             lastmod=lastmod,
+105 |             gps_lat=gps_lat,
+106 |             gps_lon=gps_lon,
+107 |         )
+```
+
+</details>

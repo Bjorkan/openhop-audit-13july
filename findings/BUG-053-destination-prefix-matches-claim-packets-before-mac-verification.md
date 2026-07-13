@@ -1,0 +1,430 @@
+# BUG-053 — Destination-prefix matches claim packets before MAC verification
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **High** |
+| Area | Repeater authenticated routing |
+| Affected components | OpenHop Core, OpenHop Repeater |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+The OpenHop stack can treat a one-byte destination-prefix match as local before any identity verifies the MAC. This can swallow packets intended for a remote node with the same prefix. Core must return an authenticated ownership result, and Repeater must stop forwarding only after that result confirms local handling.
+
+## What happens
+
+### OpenHop Core
+
+Core handler and CompanionBridge call paths do not consistently distinguish three outcomes: not a local candidate, local candidate but authentication/decryption failed, and successfully authenticated local handling. The repeater therefore cannot safely decide whether it may stop forwarding a prefix-matching packet.
+
+### OpenHop Repeater
+
+Repeater helper and PacketRouter branches treat a one-byte destination-prefix match as local before MAC verification. They can mark the packet processed or do-not-retransmit even when no local identity authenticates it.
+
+## How official MeshCore handles it
+
+### Relevant to OpenHop Core
+
+A short destination prefix selects candidates only. Local ownership is established only after MAC verification and successful decryption for a concrete identity.
+
+### Relevant to OpenHop Repeater
+
+A destination prefix selects candidates; a packet is consumed locally only after a concrete candidate verifies and decrypts it.
+
+## How the OpenHop stack handles it
+
+### OpenHop Core
+
+Several helpers expose `None`, a missing response packet, or callback side effects rather than a structured authenticated/handled result.
+
+### OpenHop Repeater
+
+A legitimate packet for a remote node sharing the first public-key byte, or a forged packet, can be swallowed by the repeater.
+
+## What needs to change
+
+### OpenHop Core
+
+Define a stable result type that separates candidate match, authentication success, payload handling, and optional response packet. Update login, text, protocol-request, and CompanionBridge receive paths to return it without marking failed authentication as handled. Add collision fixtures where a prefix matches but the MAC belongs to another node.
+
+### OpenHop Repeater
+
+Consume the structured core ownership result. Try all relevant local candidates and stop forwarding only when one reports authenticated handling. Leave unauthenticated prefix matches available to the forwarding engine. Test forged traffic and a real remote destination that collides with a local one-byte prefix.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`src/Mesh.cpp` L126–L210](https://github.com/meshcore-dev/MeshCore/blob/main/src/Mesh.cpp#L126-L210) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/companion/companion_bridge.py` L293–L315](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/companion_bridge.py#L293-L315) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/node/handlers/text.py` L200–L245](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/node/handlers/text.py#L200-L245) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/node/handlers/protocol_request.py` L71–L158](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/node/handlers/protocol_request.py#L71-L158) |
+| OpenHop Repeater | Affected implementation | [`repeater/handler_helpers/text.py` L218–L255](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/handler_helpers/text.py#L218-L255) |
+| OpenHop Repeater | Affected implementation | [`repeater/handler_helpers/protocol_request.py` L112–L139](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/handler_helpers/protocol_request.py#L112-L139) |
+| OpenHop Repeater | Affected implementation | [`repeater/handler_helpers/login.py` L223–L263](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/handler_helpers/login.py#L223-L263) |
+| OpenHop Repeater | Affected implementation | [`repeater/packet_router.py` L451–L595](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/packet_router.py#L451-L595) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/Mesh.cpp</code> (L147–L163, L173–L189)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/Mesh.cpp#L126-L210)
+
+```cpp
+147 |           for (int j = 0; j < num; j++) {
+148 |             uint8_t secret[PUB_KEY_SIZE];
+149 |             getPeerSharedSecret(secret, j);
+150 | 
+151 |             // decrypt, checking MAC is valid
+152 |             uint8_t data[MAX_PACKET_PAYLOAD];
+153 |             int len = Utils::MACThenDecrypt(secret, data, macAndData, pkt->payload_len - i);
+154 |             if (len > 0) {  // success!
+155 |               if (pkt->getPayloadType() == PAYLOAD_TYPE_PATH) {
+156 |                 int k = 0;
+157 |                 uint8_t path_len = data[k++];
+158 |                 uint8_t hash_size = (path_len >> 6) + 1;
+159 |                 uint8_t hash_count = path_len & 63;
+160 |                 uint8_t* path = &data[k]; k += hash_size*hash_count;
+161 |                 uint8_t extra_type = data[k++] & 0x0F;   // upper 4 bits reserved for future use
+162 |                 uint8_t* extra = &data[k];
+163 |                 uint8_t extra_len = len - k;   // remainder of packet (may be padded with zeroes!)
+…
+173 |               }
+174 |               found = true;
+175 |               break;
+176 |             }
+177 |           }
+178 |           if (found) {
+179 |             pkt->markDoNotRetransmit();  // packet was for this node, so don't retransmit
+180 |           } else {
+181 |             MESH_DEBUG_PRINTLN("%s recv matches no peers, src_hash=%02X", getLogDateTime(), (uint32_t)src_hash);
+182 |           }
+183 |         }
+184 |         action = routeRecvPacket(pkt);
+185 |       }
+186 |       break;
+187 |     }
+188 |     case PAYLOAD_TYPE_ANON_REQ: {
+189 |       int i = 0;
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/companion/companion_bridge.py</code> (L293–L315)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/companion_bridge.py#L293-L315)
+
+```python
+293 |     async def process_received_packet(self, packet: Packet) -> None:
+294 |         """Process a packet destined for this companion."""
+295 |         ptype = packet.get_payload_type()
+296 |         route_type = packet.get_route_type()
+297 |         is_flood = route_type in (ROUTE_TYPE_FLOOD, ROUTE_TYPE_TRANSPORT_FLOOD)
+298 |         self.stats.record_rx(is_flood=is_flood)
+299 | 
+300 |         handler = self._handlers.get(ptype)
+301 |         if handler:
+302 |             try:
+303 |                 await handler(packet)
+304 |             except Exception as e:
+305 |                 logger.error("Handler error for type %02X: %s", ptype, e)
+306 |         elif ptype == PAYLOAD_TYPE_GRP_DATA:
+307 |             try:
+308 |                 await self._handle_group_data_packet(packet)
+309 |             except Exception as e:
+310 |                 logger.error("Group data handler error: %s", e)
+311 | 
+312 |         # NOTE: PATH packets are already delivered to protocol_response_handler
+313 |         # via PathHandler.__call__ (path.py), which runs as the handler above.
+314 |         # No duplicate call here — it would cause double decryption and could
+315 |         # deliver the result to response waiters twice.
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/node/handlers/text.py</code> (L200–L245)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/node/handlers/text.py#L200-L245)
+
+```python
+200 |     async def __call__(self, packet: Packet) -> None:
+201 |         if len(packet.payload) < 4:
+202 |             self.log("TXT_MSG payload too short to decrypt")
+203 |             return
+204 | 
+205 |         src_hash = packet.payload[1]
+206 |         # Collect all contacts whose public key first byte matches src_hash (hash collision
+207 |         # possible)
+208 |         candidates = []
+209 |         for contact in self.contacts.contacts:
+210 |             try:
+211 |                 pk = self._contact_pubkey_bytes(contact)
+212 |                 if len(pk) >= 1 and pk[0] == src_hash:
+213 |                     candidates.append(contact)
+214 |             except Exception as err:
+215 |                 self.log(f"Error reading contact key: {err}")
+216 | 
+217 |         if not candidates:
+218 |             self.log(f"No contact found for src hash: {src_hash:02X}")
+219 |             return
+220 | 
+221 |         payload = packet.payload[2:]  # Skip dest_hash and src_hash
+222 |         matched_contact = None
+223 |         decrypted = None
+224 |         shared_secret = None
+225 |         for contact in candidates:
+226 |             try:
+227 |                 pubkey_bytes = self._contact_pubkey_bytes(contact)
+228 |                 if len(pubkey_bytes) != 32:
+229 |                     continue
+230 |                 peer_id = Identity(pubkey_bytes)
+231 |                 ss = peer_id.calc_shared_secret(self.local_identity.get_private_key())
+232 |                 aes_key = ss[:16]
+233 |                 decrypted = CryptoUtils.mac_then_decrypt(aes_key, ss, payload)
+234 |                 matched_contact = contact
+235 |                 shared_secret = ss
+236 |                 break
+237 |             except Exception:
+238 |                 continue
+239 | 
+240 |         if matched_contact is None or decrypted is None:
+241 |             self.log(
+242 |                 f"Decryption failed: Invalid HMAC for all {len(candidates)} contact(s) "
+243 |                 f"with src hash {src_hash:02X}"
+244 |             )
+245 |             return
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/node/handlers/protocol_request.py</code> (L115–L131, L142–L158)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/node/handlers/protocol_request.py#L71-L158)
+
+```python
+115 |                     )
+116 |                 except Exception:
+117 |                     continue
+118 |                 client = candidate
+119 |                 shared_secret = candidate_secret
+120 |                 plaintext = candidate_plaintext
+121 |                 break
+122 | 
+123 |             if client is None or shared_secret is None or plaintext is None:
+124 |                 if decrypt_attempted == 0:
+125 |                     self.log(f"No shared secret for client 0x{src_hash:02X}")
+126 |                 else:
+127 |                     self.log(
+128 |                         f"Failed to decrypt REQ for all {decrypt_attempted} candidate(s) "
+129 |                         f"with src hash 0x{src_hash:02X}"
+130 |                     )
+131 |                 return None
+…
+142 |             self.log(f"REQ type=0x{req_type:02X}, timestamp={timestamp}")
+143 | 
+144 |             # Handle request
+145 |             response_data = await self._handle_request(
+146 |                 client, timestamp, req_type, req_data
+147 |             )
+148 | 
+149 |             if response_data:
+150 |                 return self._build_response(
+151 |                     packet, client, response_data, shared_secret
+152 |                 )
+153 | 
+154 |             return None
+155 | 
+156 |         except Exception as e:
+157 |             self.log(f"Error processing REQ: {e}")
+158 |             return None
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Repeater</strong> — <code>repeater/handler_helpers/text.py</code> (L218–L255)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/handler_helpers/text.py#L218-L255)
+
+```python
+218 | 
+219 |         return ACLContactsWrapper(acl)
+220 | 
+221 |     async def process_text_packet(self, packet):
+222 | 
+223 |         try:
+224 |             if len(packet.payload) < 2:
+225 |                 return False
+226 | 
+227 |             dest_hash = packet.payload[0]
+228 |             src_hash = packet.payload[1]
+229 | 
+230 |             handler_info = self.handlers.get(dest_hash)
+231 |             if handler_info:
+232 |                 logger.debug(
+233 |                     f"Routing text message to '{handler_info['name']}': "
+234 |                     f"dest=0x{dest_hash:02X}, src=0x{src_hash:02X}"
+235 |                 )
+236 | 
+237 |                 # Let handler decrypt the message first
+238 |                 await handler_info["handler"](packet)
+239 | 
+240 |                 # Call placeholder for custom processing
+241 |                 await self._on_message_received(
+242 |                     identity_name=handler_info["name"],
+243 |                     identity_type=handler_info["type"],
+244 |                     packet=packet,
+245 |                     dest_hash=dest_hash,
+246 |                     src_hash=src_hash,
+247 |                 )
+248 | 
+249 |                 # Mark packet as handled
+250 |                 packet.mark_do_not_retransmit()
+251 |                 return True
+252 |             else:
+253 |                 logger.debug(f"No text handler for hash 0x{dest_hash:02X}, allowing forward")
+254 |                 return False
+255 | 
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Repeater</strong> — <code>repeater/handler_helpers/protocol_request.py</code> (L112–L139)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/handler_helpers/protocol_request.py#L112-L139)
+
+```python
+112 |                 matches.append(client_info)
+113 |         return matches
+114 | 
+115 |     async def process_request_packet(self, packet):
+116 | 
+117 |         try:
+118 |             if len(packet.payload) < 2:
+119 |                 return False
+120 | 
+121 |             dest_hash = packet.payload[0]
+122 | 
+123 |             handler_info = self.handlers.get(dest_hash)
+124 |             if not handler_info:
+125 |                 return False
+126 | 
+127 |             # Let core handler build response
+128 |             response_packet = await handler_info["handler"](packet)
+129 | 
+130 |             # Send response after delay
+131 |             if response_packet and self.packet_injector:
+132 |                 await asyncio.sleep(SERVER_RESPONSE_DELAY_MS / 1000.0)
+133 |                 await self.packet_injector(response_packet, wait_for_ack=False)
+134 | 
+135 |             packet.mark_do_not_retransmit()
+136 |             return True
+137 | 
+138 |         except Exception as e:
+139 |             logger.error(f"Error processing protocol request: {e}", exc_info=True)
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Repeater</strong> — <code>repeater/handler_helpers/login.py</code> (L223–L263)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/handler_helpers/login.py#L223-L263)
+
+```python
+223 |         return features_fn
+224 | 
+225 |     async def process_login_packet(self, packet):
+226 | 
+227 |         try:
+228 |             if len(packet.payload) < 1:
+229 |                 return False
+230 | 
+231 |             dest_hash = packet.payload[0]
+232 | 
+233 |             handler = self.handlers.get(dest_hash)
+234 |             if handler:
+235 |                 logger.debug(f"Routing login to identity: hash=0x{dest_hash:02X}")
+236 |                 await handler(packet)
+237 |                 packet.mark_do_not_retransmit()
+238 |                 return True
+239 |             else:
+240 |                 # ANON_REQ to other nodes (e.g. another repeater's regions/owner
+241 |                 # query overheard on-air) is normal; log at DEBUG so the dest is
+242 |                 # visible when diagnosing "why didn't my repeater answer".
+243 |                 ptype = getattr(packet, "get_payload_type", lambda: None)()
+244 |                 if ptype == PAYLOAD_TYPE_ANON_REQ:
+245 |                     logger.debug(
+246 |                         f"ANON_REQ for hash 0x{dest_hash:02X} not addressed to a local "
+247 |                         f"identity ({sorted(f'0x{h:02X}' for h in self.handlers)}); ignoring"
+248 |                     )
+249 |                 else:
+250 |                     logger.debug(
+251 |                         f"No login handler registered for hash 0x{dest_hash:02X}, allowing forward"
+252 |                     )
+253 |                 return False
+254 | 
+255 |         except Exception as e:
+256 |             logger.error(f"Error processing login packet: {e}")
+257 |             return False
+258 | 
+259 |     def _send_packet_with_delay(self, packet, delay_ms: int):
+260 | 
+261 |         if self.packet_injector:
+262 |             task = asyncio.create_task(self._delayed_send(packet, delay_ms))
+263 |             self._track_task(task)
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Repeater</strong> — <code>repeater/packet_router.py</code> (L467–L483, L583–L595)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/packet_router.py#L451-L595)
+
+```python
+467 |             # Do not set processed_by_injection so packet also reaches engine for DIRECT forwarding when we're a middle hop.
+468 |             companion_bridges = self._companion_bridges_for_packet(packet, metadata)
+469 |             for bridge in companion_bridges.values():
+470 |                 try:
+471 |                     await bridge.process_received_packet(packet)
+472 |                 except Exception as e:
+473 |                     logger.debug(f"Companion bridge ACK error: {e}")
+474 | 
+475 |         elif payload_type == TextMessageHandler.payload_type():
+476 |             dest_hash = packet.payload[0] if packet.payload else None
+477 |             companion_bridges = self._companion_bridges_for_packet(packet, metadata)
+478 |             if dest_hash is not None and dest_hash in companion_bridges:
+479 |                 await companion_bridges[dest_hash].process_received_packet(packet)
+480 |                 processed_by_injection = True
+481 |                 self._record_for_ui(packet, metadata)
+482 |             elif self.daemon.text_helper:
+483 |                 handled = await self.daemon.text_helper.process_text_packet(packet)
+…
+583 |         elif payload_type == ProtocolRequestHandler.payload_type():
+584 |             dest_hash = packet.payload[0] if packet.payload else None
+585 |             companion_bridges = self._companion_bridges_for_packet(packet, metadata)
+586 |             if dest_hash is not None and dest_hash in companion_bridges:
+587 |                 await companion_bridges[dest_hash].process_received_packet(packet)
+588 |                 processed_by_injection = True
+589 |                 self._record_for_ui(packet, metadata)
+590 |             elif self.daemon.protocol_request_helper:
+591 |                 handled = await self.daemon.protocol_request_helper.process_request_packet(packet)
+592 |                 if handled:
+593 |                     processed_by_injection = True
+594 |                     self._record_for_ui(packet, metadata)
+595 |             elif companion_bridges and _is_direct_final_hop(packet):
+```
+
+</details>

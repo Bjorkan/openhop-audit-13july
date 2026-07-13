@@ -1,0 +1,93 @@
+# BUG-035 — SHARE_CONTACT maps send failure to NOT_FOUND
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **Low** |
+| Area | Companion command responses |
+| Affected components | OpenHop Core |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+OpenHop collapses a failed contact share into ERR_CODE_NOT_FOUND even when the contact exists. MeshCore distinguishes lookup failure from inability to allocate/send the advert packet. To fix it, resolve the contact first. Return NOT_FOUND only for absence and TABLE_FULL when packet/blob allocation or send fails.
+
+## What happens
+
+OpenHop collapses a failed contact share into ERR_CODE_NOT_FOUND even when the contact exists. MeshCore distinguishes lookup failure from inability to allocate/send the advert packet.
+
+## How official MeshCore handles it
+
+CMD_SHARE_CONTACT returns NOT_FOUND only when the public key is absent. If shareContactZeroHop fails for an existing contact, it returns TABLE_FULL.
+
+## How the OpenHop stack handles it
+
+**OpenHop Core:** _cmd_share_contact calls bridge.share_contact and returns NOT_FOUND for any false result.
+
+## What needs to change
+
+Resolve the contact first. Return NOT_FOUND only for absence and TABLE_FULL when packet/blob allocation or send fails.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`examples/companion_radio/MyMesh.cpp` L1298–L1320](https://github.com/meshcore-dev/MeshCore/blob/main/examples/companion_radio/MyMesh.cpp#L1298-L1320) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/companion/frame_server/commands_contacts.py` L174–L180](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/frame_server/commands_contacts.py#L174-L180) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>examples/companion_radio/MyMesh.cpp</code> (L1298–L1320)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/examples/companion_radio/MyMesh.cpp#L1298-L1320)
+
+```cpp
+1298 |   } else if (cmd_frame[0] == CMD_SHARE_CONTACT) {
+1299 |     uint8_t *pub_key = &cmd_frame[1];
+1300 |     ContactInfo *recipient = lookupContactByPubKey(pub_key, PUB_KEY_SIZE);
+1301 |     if (recipient) {
+1302 |       if (shareContactZeroHop(*recipient)) {
+1303 |         writeOKFrame();
+1304 |       } else {
+1305 |         writeErrFrame(ERR_CODE_TABLE_FULL); // unable to send
+1306 |       }
+1307 |     } else {
+1308 |       writeErrFrame(ERR_CODE_NOT_FOUND);
+1309 |     }
+1310 |   } else if (cmd_frame[0] == CMD_GET_CONTACT_BY_KEY) {
+1311 |     uint8_t *pub_key = &cmd_frame[1];
+1312 |     ContactInfo *contact = lookupContactByPubKey(pub_key, PUB_KEY_SIZE);
+1313 |     if (contact) {
+1314 |       writeContactRespFrame(RESP_CODE_CONTACT, *contact);
+1315 |     } else {
+1316 |       writeErrFrame(ERR_CODE_NOT_FOUND); // not found
+1317 |     }
+1318 |   } else if (cmd_frame[0] == CMD_EXPORT_CONTACT) {
+1319 |     if (len < 1 + PUB_KEY_SIZE) {
+1320 |       // export SELF
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/companion/frame_server/commands_contacts.py</code> (L174–L180)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/frame_server/commands_contacts.py#L174-L180)
+
+```python
+174 |         if len(data) < PUB_KEY_SIZE:
+175 |             self._write_err(ERR_CODE_ILLEGAL_ARG)
+176 |             return
+177 |         pubkey = data[:PUB_KEY_SIZE]
+178 |         ok = await self.bridge.share_contact(pubkey)
+179 |         self._write_ok() if ok else self._write_err(ERR_CODE_NOT_FOUND)
+180 | 
+```
+
+</details>

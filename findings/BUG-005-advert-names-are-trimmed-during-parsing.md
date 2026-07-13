@@ -1,0 +1,139 @@
+# BUG-005 — Advert names are trimmed during parsing
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **Low** |
+| Area | Advert name parsing |
+| Affected components | OpenHop Core |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+OpenHop removes trailing NUL bytes and then applies `.strip()` to decoded advert names. MeshCore terminates the bounded C string but does not remove transmitted leading or trailing spaces. To fix it, remove presentation trimming from advert parsing. Preserve the decoded bounded name value after NUL termination; derive a separate trimmed label only in UI code when desired. Add fixtures for leading and trailing spaces.
+
+## What happens
+
+OpenHop removes trailing NUL bytes and then applies `.strip()` to decoded advert names. MeshCore terminates the bounded C string but does not remove transmitted leading or trailing spaces.
+
+## How official MeshCore handles it
+
+MeshCore copies the bounded name bytes and only handles their terminator; it does not trim meaningful spaces.
+
+## How the OpenHop stack handles it
+
+**OpenHop Core:** The advert decoder runs `.rstrip("\x00").strip()`, and the resulting value is stored, published, displayed, and used by name-based lookups. Distinct transmitted names can therefore become indistinguishable in those paths.
+
+## What needs to change
+
+Remove presentation trimming from advert parsing. Preserve the decoded bounded name value after NUL termination; derive a separate trimmed label only in UI code when desired. Add fixtures for leading and trailing spaces.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`src/helpers/AdvertDataHelpers.cpp` L29–L58](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/AdvertDataHelpers.cpp#L29-L58) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/protocol/utils.py` L106–L151](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/protocol/utils.py#L106-L151) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/helpers/AdvertDataHelpers.cpp</code> (L29–L58)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/AdvertDataHelpers.cpp#L29-L58)
+
+```cpp
+29 |   AdvertDataParser::AdvertDataParser(const uint8_t app_data[], uint8_t app_data_len) {
+30 |     _name[0] = 0;
+31 |     _lat = _lon = 0;
+32 |     _flags = app_data[0];
+33 |     _valid = false;
+34 |     _extra1 = _extra2 = 0;
+35 |   
+36 |     int i = 1;
+37 |     if (_flags & ADV_LATLON_MASK) {
+38 |       memcpy(&_lat, &app_data[i], 4); i += 4;
+39 |       memcpy(&_lon, &app_data[i], 4); i += 4;
+40 |     }
+41 |     if (_flags & ADV_FEAT1_MASK) {
+42 |       memcpy(&_extra1, &app_data[i], 2); i += 2;
+43 |     }
+44 |     if (_flags & ADV_FEAT2_MASK) {
+45 |       memcpy(&_extra2, &app_data[i], 2); i += 2;
+46 |     }
+47 | 
+48 |     if (app_data_len >= i) {
+49 |       int nlen = 0;
+50 |       if (_flags & ADV_NAME_MASK) {
+51 |         nlen = app_data_len - i;  // remainder of app_data
+52 |       }
+53 |       if (nlen > 0) {
+54 |         memcpy(_name, &app_data[i], nlen);
+55 |         _name[nlen] = 0;  // set null terminator
+56 |       }
+57 |       _valid = true;
+58 |     }
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/protocol/utils.py</code> (L106–L151)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/protocol/utils.py#L106-L151)
+
+```python
+106 | def decode_appdata(appdata: bytes) -> dict:
+107 |     result = {}
+108 |     offset = 0
+109 |     if len(appdata) < 1:
+110 |         raise ValueError("Appdata too short to contain flags")
+111 |     flags = appdata[offset]
+112 |     result["flags"] = flags
+113 |     offset += 1
+114 | 
+115 |     # Parse conditional fields based on flags (following the same logic as packet_analyzer)
+116 |     if flags & 0x10:  # has_location
+117 |         if len(appdata) >= offset + 8:
+118 |             import struct
+119 | 
+120 |             lat_raw = struct.unpack("<i", appdata[offset : offset + 4])[0]
+121 |             lon_raw = struct.unpack("<i", appdata[offset + 4 : offset + 8])[0]
+122 |             result["latitude"] = lat_raw / 1000000.0
+123 |             result["longitude"] = lon_raw / 1000000.0
+124 |             offset += 8
+125 | 
+126 |     if flags & 0x20:  # has_feature_1
+127 |         if len(appdata) >= offset + 2:
+128 |             import struct
+129 | 
+130 |             result["feature_1"] = struct.unpack("<H", appdata[offset : offset + 2])[0]
+131 |             offset += 2
+132 | 
+133 |     if flags & 0x40:  # has_feature_2
+134 |         if len(appdata) >= offset + 2:
+135 |             import struct
+136 | 
+137 |             result["feature_2"] = struct.unpack("<H", appdata[offset : offset + 2])[0]
+138 |             offset += 2
+139 | 
+140 |     if flags & 0x80:  # has_name
+141 |         if len(appdata) > offset:
+142 |             try:
+143 |                 name = appdata[offset:].decode("utf-8").rstrip("\x00").strip()
+144 |                 if name:  # Only add if non-empty
+145 |                     result["node_name"] = name
+146 |             except UnicodeDecodeError:
+147 |                 # If UTF-8 decoding fails, store as hex for debugging
+148 |                 result["raw_name_bytes"] = appdata[offset:].hex()
+149 |                 result["name_decode_error"] = True
+150 | 
+151 |     return result
+```
+
+</details>

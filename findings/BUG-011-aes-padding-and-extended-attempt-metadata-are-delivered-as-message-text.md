@@ -1,0 +1,155 @@
+# BUG-011 — AES padding and extended-attempt metadata are delivered as message text
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **High** |
+| Area | Text receive parsing |
+| Affected components | OpenHop Core |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+OpenHop decodes every decrypted byte after the header as text without stopping at the first NUL. Ordinary AES zero padding is retained, and for a MeshCore message with attempt > 3 the hidden attempt byte after that NUL is also delivered to storage and callbacks. To fix it, for text types, split visible content at the first NUL. If a byte follows the delimiter in the extended-attempt position, expose it as retry metadata rather than content. Strip remaining block padding according to the MeshCore layout.
+
+## What happens
+
+OpenHop decodes every decrypted byte after the header as text without stopping at the first NUL. Ordinary AES zero padding is retained, and for a MeshCore message with attempt > 3 the hidden attempt byte after that NUL is also delivered to storage and callbacks.
+
+## How official MeshCore handles it
+
+MeshCore passes the body as a C string, so visible text ends at the first NUL. It reads the potential extended attempt byte separately for ACK uniqueness.
+
+## How the OpenHop stack handles it
+
+**OpenHop Core:** TextHandler takes every decrypted byte after the timestamp, flags, and optional signed prefix as message_body and decodes it directly, without removing zero padding or the extended tail.
+
+## What needs to change
+
+For text types, split visible content at the first NUL. If a byte follows the delimiter in the extended-attempt position, expose it as retry metadata rather than content. Strip remaining block padding according to the MeshCore layout.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`src/helpers/BaseChatMesh.cpp` L217–L273](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/BaseChatMesh.cpp#L217-L273) |
+| MeshCore | Reference | [`src/helpers/BaseChatMesh.cpp` L408–L427](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/BaseChatMesh.cpp#L408-L427) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/node/handlers/text.py` L251–L325](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/node/handlers/text.py#L251-L325) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/helpers/BaseChatMesh.cpp</code> (L217–L228, L250–L266)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/BaseChatMesh.cpp#L217-L273)
+
+```cpp
+217 |   if (type == PAYLOAD_TYPE_TXT_MSG && len > 5) {
+218 |     uint32_t timestamp;
+219 |     memcpy(&timestamp, data, 4);  // timestamp (by sender's RTC clock - which could be wrong)
+220 |     uint8_t flags = data[4] >> 2;   // message attempt number, and other flags
+221 | 
+222 |     // len can be > original length, but 'text' will be padded with zeroes
+223 |     data[len] = 0; // need to make a C string again, with null terminator
+224 | 
+225 |     if (flags == TXT_TYPE_PLAIN) {
+226 |       from.lastmod = getRTCClock()->getCurrentTime(); // update last heard time
+227 |       onMessageRecv(from, packet, timestamp, (const char *) &data[5]);  // let UI know
+228 | 
+…
+250 |         mesh::Packet* path = createPathReturn(from.id, secret, packet->path, packet->path_len, 0, NULL, 0);
+251 |         if (path) sendFloodScoped(from, path);
+252 |       }
+253 |     } else if (flags == TXT_TYPE_SIGNED_PLAIN) {
+254 |       if (timestamp > from.sync_since) {  // make sure 'sync_since' is up-to-date
+255 |         from.sync_since = timestamp;
+256 |       }
+257 |       from.lastmod = getRTCClock()->getCurrentTime(); // update last heard time
+258 |       onSignedMessageRecv(from, packet, timestamp, &data[5], (const char *) &data[9]);  // let UI know
+259 | 
+260 |       uint32_t ack_hash;    // calc truncated hash of the message timestamp + text + OUR pub_key, to prove to sender that we got it
+261 |       mesh::Utils::sha256((uint8_t *) &ack_hash, 4, data, 9 + strlen((char *)&data[9]), self_id.pub_key, PUB_KEY_SIZE);
+262 | 
+263 |       if (packet->isRouteFlood()) {
+264 |         // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the ACK
+265 |         mesh::Packet* path = createPathReturn(from.id, secret, packet->path, packet->path_len,
+266 |                                                 PAYLOAD_TYPE_ACK, (uint8_t *) &ack_hash, 4);
+```
+
+</details>
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/helpers/BaseChatMesh.cpp</code> (L408–L427)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/BaseChatMesh.cpp#L408-L427)
+
+```cpp
+408 | mesh::Packet* BaseChatMesh::composeMsgPacket(const ContactInfo& recipient, uint32_t timestamp, uint8_t attempt, const char *text, uint32_t& expected_ack) {
+409 |   int text_len = strlen(text);
+410 |   if (text_len > MAX_TEXT_LEN) return NULL;
+411 |   if (attempt > 3 && text_len > MAX_TEXT_LEN-2) return NULL;
+412 | 
+413 |   uint8_t temp[5+MAX_TEXT_LEN+1];
+414 |   memcpy(temp, &timestamp, 4);   // mostly an extra blob to help make packet_hash unique
+415 |   temp[4] = (attempt & 3);
+416 |   memcpy(&temp[5], text, text_len + 1);
+417 | 
+418 |   // calc expected ACK reply
+419 |   mesh::Utils::sha256((uint8_t *)&expected_ack, 4, temp, 5 + text_len, self_id.pub_key, PUB_KEY_SIZE);
+420 | 
+421 |   int len = 5 + text_len;
+422 |   if (attempt > 3) {
+423 |     temp[len++] = 0;  // null terminator
+424 |     temp[len++] = attempt;  // hide attempt number at tail end of payload
+425 |   }
+426 | 
+427 |   return createDatagram(PAYLOAD_TYPE_TXT_MSG, recipient.id, recipient.getSharedSecret(self_id), temp, len);
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/node/handlers/text.py</code> (L251–L263, L296–L312)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/node/handlers/text.py#L251-L325)
+
+```python
+251 |         # Extract fields from decrypted data
+252 |         timestamp = decrypted[:4]  # First 4 bytes are the timestamp
+253 |         flags = decrypted[4]  # 5th byte contains flags
+254 |         txt_type = (flags >> 2) & 0x3F  # Upper 6 bits are txt_type
+255 |         message_body = decrypted[5:]  # Rest is the message content
+256 |         sender_prefix = b""
+257 |         if txt_type == TXT_TYPE_SIGNED_PLAIN:
+258 |             # Signed plain text (e.g. room server posts): a 4-byte author
+259 |             # pubkey prefix precedes the text (BaseChatMesh::onPeerDataRecv ->
+260 |             # onSignedMessageRecv(&data[5], &data[9])).
+261 |             if len(decrypted) < 9:
+262 |                 self.log("Signed message too short for author prefix")
+263 |                 return
+…
+296 |                         f"for {getattr(matched_contact, 'name', '?')}"
+297 |                     )
+298 |                 except Exception as sync_err:
+299 |                     self.log(f"Failed to update contact sync_since: {sync_err}")
+300 | 
+301 |         # Firmware ACKs plain DMs (6-byte, sender-keyed) and signed messages
+302 |         # (4-byte, keyed with OUR pubkey); CLI_DATA replies get no delivery ACK.
+303 |         ack_hash = self._calc_ack_hash(
+304 |             txt_type, decrypted, message_body, sender_pubkey, timestamp_int, flags
+305 |         )
+306 | 
+307 |         if ack_hash is not None:
+308 |             scheduled = self._build_ack_responses(
+309 |                 packet=packet,
+310 |                 matched_contact=matched_contact,
+311 |                 shared_secret=shared_secret,
+312 |                 pubkey=sender_pubkey,
+```
+
+</details>

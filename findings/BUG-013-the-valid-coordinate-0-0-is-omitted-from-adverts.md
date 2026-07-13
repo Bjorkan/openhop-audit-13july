@@ -1,0 +1,110 @@
+# BUG-013 — The valid coordinate (0, 0) is omitted from adverts
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **Low** |
+| Area | Self advertisement |
+| Affected components | OpenHop Core |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+OpenHop infers location availability from `lat != 0.0 or lon != 0.0`. The valid coordinate at the intersection of the equator and prime meridian is therefore treated as absent. To fix it, use explicit availability/policy state rather than numeric truthiness. Test zero latitude, zero longitude, and (0, 0) with location sharing enabled.
+
+## What happens
+
+OpenHop infers location availability from `lat != 0.0 or lon != 0.0`. The valid coordinate at the intersection of the equator and prime meridian is therefore treated as absent.
+
+## How official MeshCore handles it
+
+MeshCore's location policy controls inclusion independently of coordinate numeric value. Zero is serialized like any other valid coordinate when location sharing is enabled.
+
+## How the OpenHop stack handles it
+
+**OpenHop Core:** Both the companion send path and packet builder include location only when at least one coordinate is non-zero, so `(0.0, 0.0)` produces a no-location advert even when location sharing is enabled.
+
+## What needs to change
+
+Use explicit availability/policy state rather than numeric truthiness. Test zero latitude, zero longitude, and (0, 0) with location sharing enabled.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`src/helpers/CommonCLI.cpp` L202–L212](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/CommonCLI.cpp#L202-L212) |
+| MeshCore | Reference | [`examples/companion_radio/MyMesh.cpp` L2236–L2242](https://github.com/meshcore-dev/MeshCore/blob/main/examples/companion_radio/MyMesh.cpp#L2236-L2242) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/companion/base_send.py` L55–L72](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/base_send.py#L55-L72) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/helpers/CommonCLI.cpp</code> (L202–L212)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/CommonCLI.cpp#L202-L212)
+
+```cpp
+202 | uint8_t CommonCLI::buildAdvertData(uint8_t node_type, uint8_t* app_data) {
+203 |   if (_prefs->advert_loc_policy == ADVERT_LOC_NONE) {
+204 |     AdvertDataBuilder builder(node_type, _prefs->node_name);
+205 |     return builder.encodeTo(app_data);
+206 |   } else if (_prefs->advert_loc_policy == ADVERT_LOC_SHARE) {
+207 |     AdvertDataBuilder builder(node_type, _prefs->node_name, _sensors->node_lat, _sensors->node_lon);
+208 |     return builder.encodeTo(app_data);
+209 |   } else {
+210 |     AdvertDataBuilder builder(node_type, _prefs->node_name, _prefs->node_lat, _prefs->node_lon);
+211 |     return builder.encodeTo(app_data);
+212 |   }
+```
+
+</details>
+
+<details>
+<summary><strong>MeshCore</strong> — <code>examples/companion_radio/MyMesh.cpp</code> (L2236–L2242)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/examples/companion_radio/MyMesh.cpp#L2236-L2242)
+
+```cpp
+2236 | bool MyMesh::advert() {
+2237 |   mesh::Packet* pkt;
+2238 |   if (_prefs.advert_loc_policy == ADVERT_LOC_NONE) {
+2239 |     pkt = createSelfAdvert(_prefs.node_name);
+2240 |   } else {
+2241 |     pkt = createSelfAdvert(_prefs.node_name, sensors.node_lat, sensors.node_lon);
+2242 |   }
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/companion/base_send.py</code> (L55–L72)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/base_send.py#L55-L72)
+
+```python
+55 |     async def advertise(self, flood: bool = True) -> bool:
+56 |         """Broadcast an advertisement packet."""
+57 |         flags = adv_type_to_flags(self.prefs.adv_type)
+58 |         flags |= ADVERT_FLAG_HAS_NAME
+59 |         lat, lon = 0.0, 0.0
+60 |         if self.prefs.advert_loc_policy == ADVERT_LOC_SHARE:
+61 |             lat, lon = self.prefs.latitude, self.prefs.longitude
+62 |             if lat != 0.0 or lon != 0.0:
+63 |                 flags |= ADVERT_FLAG_HAS_LOCATION
+64 |         route = "flood" if flood else "direct"
+65 |         pkt = PacketBuilder.create_advert(
+66 |             local_identity=self._identity,
+67 |             name=self.prefs.node_name,
+68 |             lat=lat,
+69 |             lon=lon,
+70 |             flags=flags,
+71 |             route_type=route,
+72 |         )
+```
+
+</details>

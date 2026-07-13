@@ -29,10 +29,8 @@ The review followed actual repeater code paths rather than evaluating core in is
 ## Publication verification pass
 
 - All retained reports were checked for direct source support in the supplied OpenHop and MeshCore snapshots.
-- All **217 embedded source excerpts** were compared with their referenced local files. Every numbered source line matched; one outer Markdown fence remains intentionally widened around BUG-050 because the excerpt itself contains an internal fence.
-- BUG-053 was removed because the supplied MeshCore implementation applies the reviewed RegionMap forwarding policy to route-flood traffic, while direct-region denial is explicitly reserved for future use.
-- BUG-075 was removed because the OpenHop TCP transport explicitly documents and implements the unsolicited current-time frame as its heartbeat. It may be a strict-client compatibility concern, but it is not unintended behavior.
-- BUG-008, BUG-009, and BUG-018 were narrowed to match the exact active control flow and avoid broader claims than the evidence supports.
+- All **217 embedded source excerpts** were compared with their referenced local files. Every numbered source line matched; one outer Markdown fence remains intentionally widened around BUG-027 because the excerpt itself contains an internal fence.
+- BUG-004, BUG-005, and BUG-013 were narrowed to match the exact active control flow and avoid broader claims than the evidence supports.
 
 ## Test execution note
 

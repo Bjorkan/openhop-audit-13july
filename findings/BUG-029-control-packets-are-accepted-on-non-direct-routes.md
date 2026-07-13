@@ -1,0 +1,105 @@
+# BUG-029 — CONTROL packets are accepted on non-direct routes
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **Medium** |
+| Area | Control packet dispatch |
+| Affected components | OpenHop Core |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+MeshCore accepts the high-bit CONTROL subset only when the packet uses direct routing and has zero hops. OpenHop checks zero hops but never checks the route type, so flood or transport-flood control packets can trigger discovery handling. To fix it, require either direct route form exactly as MeshCore defines isRouteDirect, require the high bit, and release without flood forwarding. Add route-value fixtures 0 through 3.
+
+## What happens
+
+MeshCore accepts the high-bit CONTROL subset only when the packet uses direct routing and has zero hops. OpenHop checks zero hops but never checks the route type, so flood or transport-flood control packets can trigger discovery handling.
+
+## How official MeshCore handles it
+
+The CONTROL branch is explicitly guarded by pkt->isRouteDirect, payload high bit, and path hash count zero; it then releases the packet without forwarding.
+
+## How the OpenHop stack handles it
+
+**OpenHop Core:** ControlHandler validates payload and get_path_hash_count() == 0, then processes the control type regardless of pkt.get_route_type().
+
+## What needs to change
+
+Require either direct route form exactly as MeshCore defines isRouteDirect, require the high bit, and release without flood forwarding. Add route-value fixtures 0 through 3.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`src/Mesh.cpp` L67–L76](https://github.com/meshcore-dev/MeshCore/blob/main/src/Mesh.cpp#L67-L76) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/node/handlers/control.py` L70–L101](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/node/handlers/control.py#L70-L101) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/Mesh.cpp</code> (L67–L76)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/Mesh.cpp#L67-L76)
+
+```cpp
+67 |   }
+68 | 
+69 |   if (pkt->isRouteDirect() && pkt->getPayloadType() == PAYLOAD_TYPE_CONTROL && (pkt->payload[0] & 0x80) != 0) {
+70 |     if (pkt->getPathHashCount() == 0) {
+71 |       onControlDataRecv(pkt);
+72 |     }
+73 |     // just zero-hop control packets allowed (for this subset of payloads)
+74 |     return ACTION_RELEASE;
+75 |   }
+76 | 
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/node/handlers/control.py</code> (L70–L101)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/node/handlers/control.py#L70-L101)
+
+```python
+ 70 |     async def __call__(self, pkt: Packet) -> Optional[Dict[str, Any]]:
+ 71 |         """Handle incoming control packet and return parsed data."""
+ 72 |         try:
+ 73 |             if not pkt.payload or len(pkt.payload) == 0:
+ 74 |                 self._log("[ControlHandler] Empty payload, ignoring")
+ 75 |                 return None
+ 76 | 
+ 77 |             # Check if this is a zero-hop packet. The on-wire path_len byte is
+ 78 |             # encoded (bits 6-7 carry hash-size mode), so zero-hop can be 0,
+ 79 |             # 64, or 128 depending on hash-size mode.
+ 80 |             if pkt.get_path_hash_count() != 0:
+ 81 |                 self._log(
+ 82 |                     f"[ControlHandler] Non-zero path length ({pkt.path_len}), ignoring"
+ 83 |                 )
+ 84 |                 return None
+ 85 | 
+ 86 |             # Extract control type (upper 4 bits of first byte)
+ 87 |             control_type = pkt.payload[0] & 0xF0
+ 88 | 
+ 89 |             if control_type == CTL_TYPE_NODE_DISCOVER_REQ:
+ 90 |                 return await self._handle_discovery_request(pkt)
+ 91 |             elif control_type == CTL_TYPE_NODE_DISCOVER_RESP:
+ 92 |                 return await self._handle_discovery_response(pkt)
+ 93 |             else:
+ 94 |                 self._log(
+ 95 |                     f"[ControlHandler] Unknown control type: 0x{control_type:02X}"
+ 96 |                 )
+ 97 |                 return None
+ 98 | 
+ 99 |         except Exception as e:
+100 |             self._log(f"[ControlHandler] Error processing control packet: {e}")
+101 |             return None
+```
+
+</details>

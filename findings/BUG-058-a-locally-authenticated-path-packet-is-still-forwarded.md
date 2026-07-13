@@ -1,0 +1,151 @@
+# BUG-058 — A locally authenticated PATH packet is still forwarded
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **Medium** |
+| Area | Repeater PATH routing |
+| Affected components | OpenHop Repeater |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+PathHelper updates a local ACL client's outbound path but explicitly leaves the packet retransmittable and returns `False`. PacketRouter therefore passes it to the forwarding engine. To fix it, return authenticated `handled=True` and mark do-not-retransmit only after successful MAC verification and complete parsing. The router should then stop the engine. Failed authentication must still permit forwarding as described in BUG-053.
+
+## What happens
+
+PathHelper updates a local ACL client's outbound path but explicitly leaves the packet retransmittable and returns `False`. PacketRouter therefore passes it to the forwarding engine.
+
+## How official MeshCore handles it
+
+After MAC decryption succeeds for self, MeshCore marks the packet do-not-retransmit. A flood PATH response consumed locally is not appended and propagated further.
+
+## How the OpenHop stack handles it
+
+**OpenHop Repeater:** Valid PATH returns to the repeater can be flooded again after local state has already been updated. Direct-final packets usually disappear because their path is empty, but the flood case remains incorrect.
+
+## What needs to change
+
+Return authenticated `handled=True` and mark do-not-retransmit only after successful MAC verification and complete parsing. The router should then stop the engine. Failed authentication must still permit forwarding as described in BUG-053.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`src/Mesh.cpp` L174–L184](https://github.com/meshcore-dev/MeshCore/blob/main/src/Mesh.cpp#L174-L184) |
+| MeshCore | Reference | [`src/Mesh.cpp` L330–L343](https://github.com/meshcore-dev/MeshCore/blob/main/src/Mesh.cpp#L330-L343) |
+| OpenHop Repeater | Affected implementation | [`repeater/handler_helpers/path.py` L75–L89](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/handler_helpers/path.py#L75-L89) |
+| OpenHop Repeater | Affected implementation | [`repeater/packet_router.py` L487–L512](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/packet_router.py#L487-L512) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/Mesh.cpp</code> (L174–L184)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/Mesh.cpp#L174-L184)
+
+```cpp
+174 |               found = true;
+175 |               break;
+176 |             }
+177 |           }
+178 |           if (found) {
+179 |             pkt->markDoNotRetransmit();  // packet was for this node, so don't retransmit
+180 |           } else {
+181 |             MESH_DEBUG_PRINTLN("%s recv matches no peers, src_hash=%02X", getLogDateTime(), (uint32_t)src_hash);
+182 |           }
+183 |         }
+184 |         action = routeRecvPacket(pkt);
+```
+
+</details>
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/Mesh.cpp</code> (L330–L343)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/Mesh.cpp#L330-L343)
+
+```cpp
+330 | DispatcherAction Mesh::routeRecvPacket(Packet* packet) {
+331 |   uint8_t n = packet->getPathHashCount();
+332 |   if (packet->isRouteFlood() && !packet->isMarkedDoNotRetransmit()
+333 |     && (n + 1)*packet->getPathHashSize() <= MAX_PATH_SIZE && allowPacketForward(packet)) {
+334 |     // append this node's hash to 'path'
+335 |     self_id.copyHashTo(&packet->path[n * packet->getPathHashSize()], packet->getPathHashSize());
+336 |     packet->setPathHashCount(n + 1);
+337 | 
+338 |     uint32_t d = getRetransmitDelay(packet);
+339 |     // as this propagates outwards, give it lower and lower priority
+340 |     return ACTION_RETRANSMIT_DELAYED(packet->getPathHashCount(), d);   // give priority to closer sources, than ones further away
+341 |   }
+342 |   return ACTION_RELEASE;
+343 | }
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Repeater</strong> — <code>repeater/handler_helpers/path.py</code> (L75–L89)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/handler_helpers/path.py#L75-L89)
+
+```python
+75 |             path_data = decrypted[1 : 1 + path_len]
+76 | 
+77 |             # Update client's out_path (same as C++ memcpy)
+78 |             client.out_path = bytearray(path_data)
+79 |             client.out_path_len = path_len
+80 |             client.last_activity = int(time.time())
+81 | 
+82 |             logger.info(
+83 |                 f"Updated out_path for client 0x{src_hash:02X} -> 0x{dest_hash:02X}: "
+84 |                 f"path_len={path_len}, path={[hex(b) for b in path_data]}"
+85 |             )
+86 | 
+87 |             # Don't mark as do_not_retransmit - let it forward normally
+88 |             return False
+89 | 
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Repeater</strong> — <code>repeater/packet_router.py</code> (L487–L512)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/packet_router.py#L487-L512)
+
+```python
+487 | 
+488 |         elif payload_type == PathHandler.payload_type():
+489 |             dest_hash = packet.payload[0] if packet.payload else None
+490 |             companion_bridges = self._companion_bridges_for_packet(packet, metadata)
+491 |             if dest_hash is not None and dest_hash in companion_bridges:
+492 |                 if self._should_deliver_path_to_companions(packet):
+493 |                     await companion_bridges[dest_hash].process_received_packet(packet)
+494 |                 # Do not set processed_by_injection so packet also reaches engine for DIRECT forwarding when we're a middle hop.
+495 |             elif companion_bridges and self._should_deliver_path_to_companions(packet):
+496 |                 # Dest not in bridges: path-return with ephemeral dest (e.g. multi-hop login).
+497 |                 # Deliver to all bridges; each will try to decrypt and ignore if not relevant.
+498 |                 for bridge in companion_bridges.values():
+499 |                     try:
+500 |                         await bridge.process_received_packet(packet)
+501 |                     except Exception as e:
+502 |                         logger.debug(f"Companion bridge PATH error: {e}")
+503 |                 logger.debug(
+504 |                     "PATH dest=0x%02x (anon) delivered to %d bridge(s) for matching",
+505 |                     dest_hash or 0,
+506 |                     len(companion_bridges),
+507 |                 )
+508 |                 # Do not set processed_by_injection so packet also reaches engine for DIRECT forwarding when we're a middle hop.
+509 |             elif self.daemon.path_helper:
+510 |                 await self.daemon.path_helper.process_path_packet(packet)
+511 | 
+512 |         elif payload_type == LoginResponseHandler.payload_type():
+```
+
+</details>

@@ -1,0 +1,229 @@
+# BUG-027 — Path discovery builds the wrong request body and tracks the wrong tag
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **High** |
+| Area | Path discovery |
+| Affected components | OpenHop Core |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+OpenHop generates tag_int, places it inside data along with a duplicate request-type byte, then create_protocol_request prepends a different timestamp/tag and another protocol code. The repeater echoes the outer timestamp, while OpenHop records the inner random tag. To fix it, build exactly the nine MeshCore request bytes and use the builder's returned timestamp as pending_discovery. Add a decrypted byte-for-byte fixture and response-correlation test.
+
+## What happens
+
+OpenHop generates tag_int, places it inside data along with a duplicate request-type byte, then create_protocol_request prepends a different timestamp/tag and another protocol code. The repeater echoes the outer timestamp, while OpenHop records the inner random tag.
+
+## How official MeshCore handles it
+
+The request plaintext is one four-byte generated tag followed by nine request bytes: telemetry type, inverse permission mask, three reserved bytes, and four random uniqueness bytes.
+
+## How the OpenHop stack handles it
+
+**OpenHop Core:** Its plaintext becomes generated timestamp + telemetry type + random tag + telemetry type + mask + reserved bytes. _pending_discovery_tags stores random tag, not generated timestamp.
+
+## What needs to change
+
+Build exactly the nine MeshCore request bytes and use the builder's returned timestamp as pending_discovery. Add a decrypted byte-for-byte fixture and response-correlation test.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`examples/companion_radio/MyMesh.cpp` L1587–L1614](https://github.com/meshcore-dev/MeshCore/blob/main/examples/companion_radio/MyMesh.cpp#L1587-L1614) |
+| MeshCore | Reference | [`src/helpers/BaseChatMesh.cpp` L620–L665](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/BaseChatMesh.cpp#L620-L665) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/companion/base_send.py` L285–L335](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/base_send.py#L285-L335) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/protocol/packet_builder.py` L1080–L1150](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/protocol/packet_builder.py#L1080-L1150) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>examples/companion_radio/MyMesh.cpp</code> (L1587–L1614)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/examples/companion_radio/MyMesh.cpp#L1587-L1614)
+
+```cpp
+1587 |   } else if (cmd_frame[0] == CMD_SEND_PATH_DISCOVERY_REQ && cmd_frame[1] == 0 && len >= 2 + PUB_KEY_SIZE) {
+1588 |     uint8_t *pub_key = &cmd_frame[2];
+1589 |     ContactInfo *recipient = lookupContactByPubKey(pub_key, PUB_KEY_SIZE);
+1590 |     if (recipient) {
+1591 |       uint32_t tag, est_timeout;
+1592 |       // 'Path Discovery' is just a special case of flood + Telemetry req
+1593 |       uint8_t req_data[9];
+1594 |       req_data[0] = REQ_TYPE_GET_TELEMETRY_DATA;
+1595 |       req_data[1] = ~(TELEM_PERM_BASE);  // NEW: inverse permissions mask (ie. we only want BASE telemetry)
+1596 |       memset(&req_data[2], 0, 3);  // reserved
+1597 |       getRNG()->random(&req_data[5], 4);   // random blob to help make packet-hash unique
+1598 |       auto save = recipient->out_path_len;    // temporarily force sendRequest() to flood
+1599 |       recipient->out_path_len = OUT_PATH_UNKNOWN;
+1600 |       int result = sendRequest(*recipient, req_data, sizeof(req_data), tag, est_timeout);
+1601 |       recipient->out_path_len = save;
+1602 |       if (result == MSG_SEND_FAILED) {
+1603 |         writeErrFrame(ERR_CODE_TABLE_FULL);
+1604 |       } else {
+1605 |         clearPendingReqs();
+1606 |         pending_discovery = tag; // match this in onContactResponse()
+1607 |         out_frame[0] = RESP_CODE_SENT;
+1608 |         out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;
+1609 |         memcpy(&out_frame[2], &tag, 4);
+1610 |         memcpy(&out_frame[6], &est_timeout, 4);
+1611 |         _serial->writeFrame(out_frame, 10);
+1612 |       }
+1613 |     } else {
+1614 |       writeErrFrame(ERR_CODE_NOT_FOUND); // contact not found
+```
+
+</details>
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/helpers/BaseChatMesh.cpp</code> (L620–L665)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/BaseChatMesh.cpp#L620-L665)
+
+```cpp
+620 | int  BaseChatMesh::sendRequest(const ContactInfo& recipient, const uint8_t* req_data, uint8_t data_len, uint32_t& tag, uint32_t& est_timeout) {
+621 |   if (data_len > MAX_PACKET_PAYLOAD - 16) return MSG_SEND_FAILED;
+622 | 
+623 |   mesh::Packet* pkt;
+624 |   {
+625 |     uint8_t temp[MAX_PACKET_PAYLOAD];
+626 |     tag = getRTCClock()->getCurrentTimeUnique();
+627 |     memcpy(temp, &tag, 4);   // mostly an extra blob to help make packet_hash unique
+628 |     memcpy(&temp[4], req_data, data_len);
+629 | 
+630 |     pkt = createDatagram(PAYLOAD_TYPE_REQ, recipient.id, recipient.getSharedSecret(self_id), temp, 4 + data_len);
+631 |   }
+632 |   if (pkt) {
+633 |     uint32_t t = _radio->getEstAirtimeFor(pkt->getRawLength());
+634 |     if (recipient.out_path_len == OUT_PATH_UNKNOWN) {
+635 |       sendFloodScoped(recipient, pkt);
+636 |       est_timeout = calcFloodTimeoutMillisFor(t);
+637 |       return MSG_SEND_SENT_FLOOD;
+638 |     } else {
+639 |       sendDirect(pkt, recipient.out_path, recipient.out_path_len);
+640 |       est_timeout = calcDirectTimeoutMillisFor(t, recipient.out_path_len);
+641 |       return MSG_SEND_SENT_DIRECT;
+642 |     }
+643 |   }
+644 |   return MSG_SEND_FAILED;
+645 | }
+646 | 
+647 | int  BaseChatMesh::sendRequest(const ContactInfo& recipient, uint8_t req_type, uint32_t& tag, uint32_t& est_timeout) {
+648 |   mesh::Packet* pkt;
+649 |   {
+650 |     uint8_t temp[13];
+651 |     tag = getRTCClock()->getCurrentTimeUnique();
+652 |     memcpy(temp, &tag, 4);   // mostly an extra blob to help make packet_hash unique
+653 |     temp[4] = req_type;
+654 |     memset(&temp[5], 0, 4);  // reserved (possibly for 'since' param)
+655 |     getRNG()->random(&temp[9], 4);   // random blob to help make packet-hash unique
+656 | 
+657 |     pkt = createDatagram(PAYLOAD_TYPE_REQ, recipient.id, recipient.getSharedSecret(self_id), temp, sizeof(temp));
+658 |   }
+659 |   if (pkt) {
+660 |     uint32_t t = _radio->getEstAirtimeFor(pkt->getRawLength());
+661 |     if (recipient.out_path_len == OUT_PATH_UNKNOWN) {
+662 |       sendFloodScoped(recipient, pkt);
+663 |       est_timeout = calcFloodTimeoutMillisFor(t);
+664 |       return MSG_SEND_SENT_FLOOD;
+665 |     } else {
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/companion/base_send.py</code> (L293–L309, L312–L328)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/base_send.py#L285-L335)
+
+```python
+293 |             return SentResult(success=False)
+294 |         # Resolve by exact public key, not name: two contacts can share a name
+295 |         # (e.g. a re-keyed node) and get_by_name returns the first match, which
+296 |         # would encrypt/route to the wrong key.
+297 |         proxy = self.contacts.get_proxy_by_key(pub_key)
+298 |         if not proxy:
+299 |             return SentResult(success=False)
+300 |         tag_int = random.randint(0, 0xFFFFFFFF)
+301 |         tag_bytes = tag_int.to_bytes(4, "little")
+302 |         inv_perm = 0xFF & ~TELEM_PERM_BASE
+303 |         req_payload = tag_bytes + bytes([REQ_TYPE_GET_TELEMETRY_DATA, inv_perm, 0, 0, 0])
+304 |         old_path_len = contact.out_path_len
+305 |         old_path = contact.out_path
+306 |         contact.out_path_len = -1
+307 |         contact.out_path = b""
+308 |         self.contacts.update(contact)
+309 |         try:
+…
+312 |                 local_identity=self._identity,
+313 |                 protocol_code=REQ_TYPE_GET_TELEMETRY_DATA,
+314 |                 data=req_payload,
+315 |             )
+316 |             self._apply_flood_scope(pkt)
+317 |             self._apply_path_hash_mode(pkt)
+318 |             success = await self._send_packet(pkt, wait_for_ack=False)
+319 |             if success:
+320 |                 self._pending_discovery_tags.add(tag_int)
+321 |             return SentResult(
+322 |                 success=success,
+323 |                 is_flood=True,
+324 |                 expected_ack=tag_int,
+325 |                 timeout_ms=DEFAULT_RESPONSE_TIMEOUT_MS,
+326 |             )
+327 |         except Exception as e:
+328 |             logger.error("Error in path discovery: %s", e)
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/protocol/packet_builder.py</code> (L1105–L1121, L1126–L1142)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/protocol/packet_builder.py#L1080-L1150)
+
+````python
+1105 |             packet.get_payload_type()
+1106 |             # Returns: 4
+1107 |             ```
+1108 |         """
+1109 |         if timestamp is None:
+1110 |             timestamp = PacketBuilder._get_timestamp()
+1111 | 
+1112 |         # Use  timestamp+data packing
+1113 |         plaintext = PacketBuilder._pack_timestamp_data(timestamp, protocol_code, data)
+1114 | 
+1115 |         # Use  encryption and payload creation
+1116 |         payload, shared_secret, aes_key = PacketBuilder._create_encrypted_payload(
+1117 |             contact, local_identity, plaintext
+1118 |         )
+1119 | 
+1120 |         out_path_len = getattr(contact, "out_path_len", -1)
+1121 |         out_path = getattr(contact, "out_path", b"") or b""
+…
+1126 |         route_type = "direct" if out_path_len >= 0 else "flood"
+1127 | 
+1128 |         header = PacketBuilder._create_header(PAYLOAD_TYPE_REQ, route_type)
+1129 |         packet = PacketBuilder._create_packet(header, payload)
+1130 | 
+1131 |         if route_type == "direct" and len(out_path) > 0:
+1132 |             path_bytes = out_path[:MAX_PATH_SIZE]
+1133 |             encoded_len = None
+1134 |             if PathUtils.is_valid_path_len(out_path_len) and PathUtils.get_path_byte_len(
+1135 |                 out_path_len
+1136 |             ) <= len(path_bytes):
+1137 |                 encoded_len = out_path_len
+1138 |             elif len(path_bytes) == 64:
+1139 |                 path_bytes = path_bytes[:63]
+1140 |             packet.set_path(path_bytes, encoded_len)
+1141 | 
+1142 |         return packet, timestamp
+````
+
+</details>

@@ -1,0 +1,133 @@
+# BUG-045 — Login, status, and telemetry commands report SENT before attempting the send
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **Medium** |
+| Area | Companion command responses |
+| Affected components | OpenHop Core |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+OpenHop emits RESP_CODE_SENT with hardcoded route/tag/timeout before it looks up the target or knows whether packet construction/transmission succeeded. A later failure leaves the client with a false accepted-send result. To fix it, make bridge sends return SentResult, validate them first, and emit exactly one response: appropriate error or actual SENT metadata. Do not hardcode tag zero or route.
+
+## What happens
+
+OpenHop emits RESP_CODE_SENT with hardcoded route/tag/timeout before it looks up the target or knows whether packet construction/transmission succeeded. A later failure leaves the client with a false accepted-send result.
+
+## How official MeshCore handles it
+
+Each command resolves the contact, calls sendLogin/sendRequest, returns NOT_FOUND or TABLE_FULL on failure, and only then sends RESP_CODE_SENT containing the actual flood flag, tag, and estimated timeout.
+
+## How the OpenHop stack handles it
+
+**OpenHop Core:** The three handlers call _write_sent_response first, then await bridge.send_*. Failures produce no correcting error frame.
+
+## What needs to change
+
+Make bridge sends return SentResult, validate them first, and emit exactly one response: appropriate error or actual SENT metadata. Do not hardcode tag zero or route.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`examples/companion_radio/MyMesh.cpp` L1514–L1650](https://github.com/meshcore-dev/MeshCore/blob/main/examples/companion_radio/MyMesh.cpp#L1514-L1650) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/companion/frame_server/commands_messaging.py` L379–L461](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/frame_server/commands_messaging.py#L379-L461) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>examples/companion_radio/MyMesh.cpp</code> (L1556–L1572, L1608–L1624)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/examples/companion_radio/MyMesh.cpp#L1514-L1650)
+
+```cpp
+1556 |         pending_req = tag; // match this to onContactResponse()
+1557 |         out_frame[0] = RESP_CODE_SENT;
+1558 |         out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;
+1559 |         memcpy(&out_frame[2], &tag, 4);
+1560 |         memcpy(&out_frame[6], &est_timeout, 4);
+1561 |         _serial->writeFrame(out_frame, 10);
+1562 |       }
+1563 |     } else {
+1564 |       writeErrFrame(ERR_CODE_TABLE_FULL); // contacts full
+1565 |     }
+1566 |   } else if (cmd_frame[0] == CMD_SEND_STATUS_REQ && len >= 1 + PUB_KEY_SIZE) {
+1567 |     uint8_t *pub_key = &cmd_frame[1];
+1568 |     ContactInfo *recipient = lookupContactByPubKey(pub_key, PUB_KEY_SIZE);
+1569 |     if (recipient) {
+1570 |       uint32_t tag, est_timeout;
+1571 |       int result = sendRequest(*recipient, REQ_TYPE_GET_STATUS, tag, est_timeout);
+1572 |       if (result == MSG_SEND_FAILED) {
+…
+1608 |         out_frame[1] = (result == MSG_SEND_SENT_FLOOD) ? 1 : 0;
+1609 |         memcpy(&out_frame[2], &tag, 4);
+1610 |         memcpy(&out_frame[6], &est_timeout, 4);
+1611 |         _serial->writeFrame(out_frame, 10);
+1612 |       }
+1613 |     } else {
+1614 |       writeErrFrame(ERR_CODE_NOT_FOUND); // contact not found
+1615 |     }
+1616 |   } else if (cmd_frame[0] == CMD_SEND_TELEMETRY_REQ && len >= 4 + PUB_KEY_SIZE) {  // can deprecate, in favour of CMD_SEND_BINARY_REQ
+1617 |     uint8_t *pub_key = &cmd_frame[4];
+1618 |     ContactInfo *recipient = lookupContactByPubKey(pub_key, PUB_KEY_SIZE);
+1619 |     if (recipient) {
+1620 |       uint32_t tag, est_timeout;
+1621 |       int result = sendRequest(*recipient, REQ_TYPE_GET_TELEMETRY_DATA, tag, est_timeout);
+1622 |       if (result == MSG_SEND_FAILED) {
+1623 |         writeErrFrame(ERR_CODE_TABLE_FULL);
+1624 |       } else {
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/companion/frame_server/commands_messaging.py</code> (L408–L424, L435–L451)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/frame_server/commands_messaging.py#L379-L461)
+
+```python
+408 |         else:
+409 |             self._write_frame(bytes([PUSH_CODE_LOGIN_FAIL, 0]) + pubkey[:6])
+410 | 
+411 |     async def _cmd_send_status_req(self, data: bytes) -> None:
+412 |         if len(data) < PUB_KEY_SIZE:
+413 |             self._write_err(ERR_CODE_ILLEGAL_ARG)
+414 |             return
+415 |         pubkey = data[0:PUB_KEY_SIZE]
+416 |         self._write_sent_response(False, 0, STATUS_TIMEOUT_HINT_MS)
+417 |         result = await self.bridge.send_status_request(pubkey)
+418 |         if not result.get("success"):
+419 |             logger.debug("Status request failed for %s; no push sent)", pubkey[:6].hex())
+420 |             return
+421 |         stats_data = result.get("stats", {})
+422 |         raw_bytes = stats_data.get("raw_bytes", b"")
+423 |         if not raw_bytes:
+424 |             logger.debug(
+…
+435 |             self._write_err(ERR_CODE_ILLEGAL_ARG)
+436 |             return
+437 |         pubkey = data[3 : 3 + PUB_KEY_SIZE]
+438 |         # Request all: base + location + environment
+439 |         flags = TELEM_PERM_BASE | TELEM_PERM_LOCATION | TELEM_PERM_ENVIRONMENT
+440 |         want_base = bool(flags & TELEM_PERM_BASE)
+441 |         want_location = bool(flags & TELEM_PERM_LOCATION)
+442 |         want_environment = bool(flags & TELEM_PERM_ENVIRONMENT)
+443 |         self._write_sent_response(False, 0, TELEMETRY_TIMEOUT_HINT_MS)
+444 |         result = await self.bridge.send_telemetry_request(
+445 |             pubkey,
+446 |             want_base=want_base,
+447 |             want_location=want_location,
+448 |             want_environment=want_environment,
+449 |         )
+450 |         if not result.get("success"):
+451 |             logger.debug("Telemetry request failed for %s; no push sent", pubkey[:6].hex())
+```
+
+</details>

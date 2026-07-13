@@ -1,0 +1,111 @@
+# BUG-010 — Text attempt numbers above three are discarded
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **Medium** |
+| Area | Text retry encoding |
+| Affected components | OpenHop Core |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+MeshCore supports retry attempt values above three by storing the low two bits in flags and hiding the full attempt byte after a NUL at the plaintext tail. OpenHop masks the input to two bits immediately, losing the full value. To fix it, keep the original attempt separately, validate the smaller extended-text size limit, encode the low bits in flags, and append NUL plus the original attempt exactly as MeshCore does.
+
+## What happens
+
+MeshCore supports retry attempt values above three by storing the low two bits in flags and hiding the full attempt byte after a NUL at the plaintext tail. OpenHop masks the input to two bits immediately, losing the full value.
+
+## How official MeshCore handles it
+
+composeMsgPacket uses attempt & 3 in flags and, when attempt > 3, appends NUL plus the original attempt. This keeps ACK calculation stable while retaining the real retry number.
+
+## How the OpenHop stack handles it
+
+**OpenHop Core:** create_text_message executes attempt &= 0x03 and never adds the extended tail.
+
+## What needs to change
+
+Keep the original attempt separately, validate the smaller extended-text size limit, encode the low bits in flags, and append NUL plus the original attempt exactly as MeshCore does.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`src/helpers/BaseChatMesh.cpp` L408–L427](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/BaseChatMesh.cpp#L408-L427) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/protocol/packet_builder.py` L935–L1015](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/protocol/packet_builder.py#L935-L1015) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/helpers/BaseChatMesh.cpp</code> (L408–L427)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/BaseChatMesh.cpp#L408-L427)
+
+```cpp
+408 | mesh::Packet* BaseChatMesh::composeMsgPacket(const ContactInfo& recipient, uint32_t timestamp, uint8_t attempt, const char *text, uint32_t& expected_ack) {
+409 |   int text_len = strlen(text);
+410 |   if (text_len > MAX_TEXT_LEN) return NULL;
+411 |   if (attempt > 3 && text_len > MAX_TEXT_LEN-2) return NULL;
+412 | 
+413 |   uint8_t temp[5+MAX_TEXT_LEN+1];
+414 |   memcpy(temp, &timestamp, 4);   // mostly an extra blob to help make packet_hash unique
+415 |   temp[4] = (attempt & 3);
+416 |   memcpy(&temp[5], text, text_len + 1);
+417 | 
+418 |   // calc expected ACK reply
+419 |   mesh::Utils::sha256((uint8_t *)&expected_ack, 4, temp, 5 + text_len, self_id.pub_key, PUB_KEY_SIZE);
+420 | 
+421 |   int len = 5 + text_len;
+422 |   if (attempt > 3) {
+423 |     temp[len++] = 0;  // null terminator
+424 |     temp[len++] = attempt;  // hide attempt number at tail end of payload
+425 |   }
+426 | 
+427 |   return createDatagram(PAYLOAD_TYPE_TXT_MSG, recipient.id, recipient.getSharedSecret(self_id), temp, len);
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/protocol/packet_builder.py</code> (L935–L944, L984–L1000)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/protocol/packet_builder.py#L935-L1015)
+
+```python
+935 |     @staticmethod
+936 |     def create_text_message(
+937 |         contact: Any,
+938 |         local_identity: LocalIdentity,
+939 |         message: str,
+940 |         attempt: int = 0,
+941 |         message_type: str = "direct",
+942 |         out_path: Optional[list] = None,
+943 |         txt_type: int = 0,
+944 |         timestamp: Optional[int] = None,
+…
+ 984 |         flags_byte = (txt_type << 2) | attempt
+ 985 |         timestamp = timestamp if timestamp is not None else PacketBuilder._get_timestamp()
+ 986 | 
+ 987 |         signed_sender_prefix = (
+ 988 |             local_identity.get_public_key()[:4] if txt_type == TXT_TYPE_SIGNED_PLAIN else b""
+ 989 |         )
+ 990 | 
+ 991 |         # Use  timestamp+data packing
+ 992 |         plaintext = PacketBuilder._pack_timestamp_data(
+ 993 |             timestamp, flags_byte, signed_sender_prefix, message, b"\x00"
+ 994 |         )
+ 995 | 
+ 996 |         # Use  encryption and payload creation
+ 997 |         payload, shared_secret, aes_key = PacketBuilder._create_encrypted_payload(
+ 998 |             contact, local_identity, plaintext
+ 999 |         )
+1000 | 
+```
+
+</details>

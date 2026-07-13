@@ -1,0 +1,131 @@
+# BUG-002 — Packet payload limit is larger than MeshCore's wire limit
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **Medium** |
+| Area | Packet format |
+| Affected components | OpenHop Core |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+OpenHop allows payloads up to 256 bytes even though the included MeshCore packet buffer supports 184 payload bytes. OpenHop can construct packets that cannot exist in MeshCore's packet representation. To fix it, use 184 as the protocol payload ceiling and enforce it at packet creation, deserialization, and every command that queues a packet. Keep transport framing limits separate from packet payload limits.
+
+## What happens
+
+OpenHop allows payloads up to 256 bytes even though the included MeshCore packet buffer supports 184 payload bytes. OpenHop can construct packets that cannot exist in MeshCore's packet representation.
+
+## How official MeshCore handles it
+
+MeshCore's Packet layout and MAX_PACKET_PAYLOAD define a maximum payload of 184 bytes.
+
+## How the OpenHop stack handles it
+
+**OpenHop Core:** OpenHop's protocol constant is 256 and its validation accepts that larger size.
+
+## What needs to change
+
+Use 184 as the protocol payload ceiling and enforce it at packet creation, deserialization, and every command that queues a packet. Keep transport framing limits separate from packet payload limits.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`src/Packet.h` L34–L50](https://github.com/meshcore-dev/MeshCore/blob/main/src/Packet.h#L34-L50) |
+| MeshCore | Reference | [`src/MeshCore.h` L5–L21](https://github.com/meshcore-dev/MeshCore/blob/main/src/MeshCore.h#L5-L21) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/protocol/constants.py` L41–L63](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/protocol/constants.py#L41-L63) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/Packet.h</code> (L34–L50)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/Packet.h#L34-L50)
+
+```cpp
+34 | #define PAYLOAD_VER_1       0x00   // 1-byte src/dest hashes, 2-byte MAC
+35 | #define PAYLOAD_VER_2       0x01   // FUTURE (eg. 2-byte hashes, 4-byte MAC ??)
+36 | #define PAYLOAD_VER_3       0x02   // FUTURE
+37 | #define PAYLOAD_VER_4       0x03   // FUTURE
+38 | 
+39 | /**
+40 |  * \brief  The fundamental transmission unit.
+41 | */
+42 | class Packet {
+43 | public:
+44 |   Packet();
+45 | 
+46 |   uint8_t header;
+47 |   uint16_t payload_len, path_len;
+48 |   uint16_t transport_codes[2];
+49 |   uint8_t path[MAX_PATH_SIZE];
+50 |   uint8_t payload[MAX_PACKET_PAYLOAD];
+```
+
+</details>
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/MeshCore.h</code> (L5–L21)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/MeshCore.h#L5-L21)
+
+```cpp
+ 5 | #include <math.h>
+ 6 | 
+ 7 | #define MAX_HASH_SIZE        8
+ 8 | #define PUB_KEY_SIZE        32
+ 9 | #define PRV_KEY_SIZE        64
+10 | #define SEED_SIZE           32
+11 | #define SIGNATURE_SIZE      64
+12 | #define MAX_ADVERT_DATA_SIZE  32
+13 | #define CIPHER_KEY_SIZE     16
+14 | #define CIPHER_BLOCK_SIZE   16
+15 | 
+16 | // V1
+17 | #define CIPHER_MAC_SIZE      2
+18 | #define PATH_HASH_SIZE       1
+19 | 
+20 | #define MAX_PACKET_PAYLOAD  184
+21 | #define MAX_GROUP_DATA_LENGTH  (MAX_PACKET_PAYLOAD - CIPHER_BLOCK_SIZE - 3)
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/protocol/constants.py</code> (L41–L63)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/protocol/constants.py#L41-L63)
+
+```python
+41 | PAYLOAD_VER_1 = 0x00  # Currently supported
+42 | PAYLOAD_VER_2 = 0x01  # Reserved for future use
+43 | PAYLOAD_VER_3 = 0x02  # Reserved for future use
+44 | PAYLOAD_VER_4 = 0x03  # Reserved for future use
+45 | MAX_SUPPORTED_PAYLOAD_VERSION = PAYLOAD_VER_2  # Accept versions 0-1
+46 | 
+47 | # ---------------------------------------------------------------------------
+48 | # Misc sizes
+49 | # ---------------------------------------------------------------------------
+50 | MAX_ADVERT_DATA_SIZE = 96
+51 | PUB_KEY_SIZE = 32
+52 | SIGNATURE_SIZE = 64
+53 | PATH_HASH_SIZE = 1  # Legacy default; see PathUtils for multi-byte path support
+54 | PATH_HASH_COUNT_MASK = 0x3F  # bits 0-5 of encoded path_len (max encodable hop count)
+55 | PATH_HASH_SIZE_SHIFT = 6  # bits 6-7 of encoded path_len
+56 | CIPHER_MAC_SIZE = 32  # SHA‑256 HMAC
+57 | CIPHER_BLOCK_SIZE = 16
+58 | MAX_PACKET_PAYLOAD = 256  # firmware's default
+59 | MAX_TEXT_LEN = 10 * CIPHER_BLOCK_SIZE  # firmware BaseChatMesh.h message text cap (160)
+60 | 
+61 | MAX_PATH_SIZE = 64
+62 | MAX_PACKET_PAYLOAD = 256
+63 | MAX_HASH_SIZE = 32  # SHA-256 truncated
+```
+
+</details>

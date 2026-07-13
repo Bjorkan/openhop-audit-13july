@@ -1,0 +1,311 @@
+# BUG-049 — Maximum-length valid direct paths are rejected
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **Medium** |
+| Area | Core/repeater routing |
+| Affected components | OpenHop Core, OpenHop Repeater |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+OpenHop rejects valid direct paths at the maximum encoded size before forwarding can remove the next hop. Core and Repeater must distinguish generic path validity from the extra capacity needed when appending a hop to a flood route.
+
+## What happens
+
+### OpenHop Core
+
+Dispatcher marks every path at encoded capacity as do-not-retransmit before route-specific processing, even when direct forwarding will remove the first hop and shorten the path.
+
+### OpenHop Repeater
+
+The repeater generic path validator rejects `len(path) >= MAX_PATH_SIZE`, which rejects an exactly 64-byte path even when its encoding is valid and direct forwarding will remove the next hop.
+
+## How official MeshCore handles it
+
+### Relevant to OpenHop Core
+
+Capacity is checked when a flood path must append another hop. A valid maximum-length direct path may still be forwarded after removing its next-hop entry.
+
+### Relevant to OpenHop Repeater
+
+An exactly maximum-size direct path remains valid because forwarding shortens it; only an oversized path or a flood append that would exceed capacity must be rejected.
+
+## How the OpenHop stack handles it
+
+### OpenHop Core
+
+Paths at 63 one-byte hops, 32 two-byte hops, or 21 three-byte hops are blocked before the direct branch can shorten them.
+
+### OpenHop Repeater
+
+A valid 32-hop two-byte path is rejected before `direct_forward` can remove its first hop.
+
+## What needs to change
+
+### OpenHop Core
+
+Remove route-independent maximum-hop rejection from Dispatcher. Enforce capacity at the operation that appends to a flood path, while allowing direct forwarding to remove the first encoded hop. Add maximum and one-below-maximum fixtures for all hash widths.
+
+### OpenHop Repeater
+
+Reject only paths greater than `MAX_PATH_SIZE` in generic validation. Keep a separate pre-append capacity check for flood forwarding. Test exactly 64 bytes, one byte below, and one byte above, including a valid two-byte hash encoding.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`src/Dispatcher.cpp` L164–L187](https://github.com/meshcore-dev/MeshCore/blob/main/src/Dispatcher.cpp#L164-L187) |
+| MeshCore | Reference | [`src/Mesh.cpp` L77–L107](https://github.com/meshcore-dev/MeshCore/blob/main/src/Mesh.cpp#L77-L107) |
+| MeshCore | Reference | [`src/Mesh.cpp` L330–L343](https://github.com/meshcore-dev/MeshCore/blob/main/src/Mesh.cpp#L330-L343) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/node/dispatcher.py` L408–L420](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/node/dispatcher.py#L408-L420) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/protocol/packet_utils.py` L146–L176](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/protocol/packet_utils.py#L146-L176) |
+| OpenHop Repeater | Affected implementation | [`repeater/engine.py` L768–L779](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/engine.py#L768-L779) |
+| OpenHop Repeater | Affected implementation | [`repeater/engine.py` L980–L1023](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/engine.py#L980-L1023) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/Dispatcher.cpp</code> (L164–L187)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/Dispatcher.cpp#L164-L187)
+
+```cpp
+164 |   pkt->path_len = raw[i++];
+165 |   uint8_t path_mode = pkt->path_len >> 6;  // upper 2 bits (legacy firmware: 00)
+166 |   if (path_mode == 3) {   // Reserved for future
+167 |     MESH_DEBUG_PRINTLN("%s Dispatcher::checkRecv(): unsupported path mode: 3", getLogDateTime());
+168 |     return false;
+169 |   }
+170 | 
+171 |   uint8_t path_byte_len = (pkt->path_len & 63) * pkt->getPathHashSize();
+172 |   if (path_byte_len > MAX_PATH_SIZE || i + path_byte_len > len) {
+173 |     MESH_DEBUG_PRINTLN("%s Dispatcher::checkRecv(): partial or corrupt packet received, len=%d", getLogDateTime(), len);
+174 |     return false;
+175 |   }
+176 | 
+177 |   memcpy(pkt->path, &raw[i], path_byte_len); i += path_byte_len;
+178 | 
+179 |   pkt->payload_len = len - i;  // payload is remainder
+180 |   if (pkt->payload_len > sizeof(pkt->payload)) {
+181 |     MESH_DEBUG_PRINTLN("%s Dispatcher::checkRecv(): packet payload too big, payload_len=%d", getLogDateTime(), (uint32_t)pkt->payload_len);
+182 |     return false;
+183 |   }
+184 | 
+185 |   memcpy(pkt->payload, &raw[i], pkt->payload_len);
+186 | 
+187 |   return true;  // success
+```
+
+</details>
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/Mesh.cpp</code> (L77–L107)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/Mesh.cpp#L77-L107)
+
+```cpp
+ 77 |   if (pkt->isRouteDirect() && pkt->getPathHashCount() > 0) {
+ 78 |     // check for 'early received' ACK
+ 79 |     if (pkt->getPayloadType() == PAYLOAD_TYPE_ACK) {
+ 80 |       int i = 0;
+ 81 |       uint32_t ack_crc;
+ 82 |       memcpy(&ack_crc, &pkt->payload[i], 4); i += 4;
+ 83 |       if (i <= pkt->payload_len) {
+ 84 |         onAckRecv(pkt, ack_crc);
+ 85 |       }
+ 86 |     }
+ 87 | 
+ 88 |     if (self_id.isHashMatch(pkt->path, pkt->getPathHashSize()) && allowPacketForward(pkt)) {
+ 89 |       if (pkt->getPayloadType() == PAYLOAD_TYPE_MULTIPART) {
+ 90 |         return forwardMultipartDirect(pkt);
+ 91 |       } else if (pkt->getPayloadType() == PAYLOAD_TYPE_ACK) {
+ 92 |         if (!_tables->hasSeen(pkt)) {  // don't retransmit!
+ 93 |           removeSelfFromPath(pkt);
+ 94 |           routeDirectRecvAcks(pkt, 0);
+ 95 |         }
+ 96 |         return ACTION_RELEASE;
+ 97 |       }
+ 98 | 
+ 99 |       if (!_tables->hasSeen(pkt)) {
+100 |         removeSelfFromPath(pkt);
+101 | 
+102 |         uint32_t d = getDirectRetransmitDelay(pkt);
+103 |         return ACTION_RETRANSMIT_DELAYED(0, d);  // Routed traffic is HIGHEST priority 
+104 |       }
+105 |     }
+106 |     return ACTION_RELEASE;   // this node is NOT the next hop (OR this packet has already been forwarded), so discard.
+107 |   }
+```
+
+</details>
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/Mesh.cpp</code> (L330–L343)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/Mesh.cpp#L330-L343)
+
+```cpp
+330 | DispatcherAction Mesh::routeRecvPacket(Packet* packet) {
+331 |   uint8_t n = packet->getPathHashCount();
+332 |   if (packet->isRouteFlood() && !packet->isMarkedDoNotRetransmit()
+333 |     && (n + 1)*packet->getPathHashSize() <= MAX_PATH_SIZE && allowPacketForward(packet)) {
+334 |     // append this node's hash to 'path'
+335 |     self_id.copyHashTo(&packet->path[n * packet->getPathHashSize()], packet->getPathHashSize());
+336 |     packet->setPathHashCount(n + 1);
+337 | 
+338 |     uint32_t d = getRetransmitDelay(packet);
+339 |     // as this propagates outwards, give it lower and lower priority
+340 |     return ACTION_RETRANSMIT_DELAYED(packet->getPathHashCount(), d);   // give priority to closer sources, than ones further away
+341 |   }
+342 |   return ACTION_RELEASE;
+343 | }
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/node/dispatcher.py</code> (L408–L420)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/node/dispatcher.py#L408-L420)
+
+```python
+408 |         # Parse before dedup — calculate_packet_hash() needs a parsed packet
+409 |         pkt = Packet()
+410 |         try:
+411 |             pkt.read_from(data)
+412 |         except Exception as err:
+413 |             self._log(f"Malformed packet: {err}")
+414 |             self.packet_filter.blacklist(raw_hash)
+415 |             self._log(f"Blacklisted malformed packet (raw hash: {raw_hash})")
+416 |             return
+417 | 
+418 |         # Packets at max hops for their path encoding must not be retransmitted
+419 |         if PathUtils.is_path_at_max_hops(pkt.path_len):
+420 |             pkt.mark_do_not_retransmit()
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/protocol/packet_utils.py</code> (L146–L176)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/protocol/packet_utils.py#L146-L176)
+
+```python
+146 |     def is_valid_path_len(path_len_byte: int) -> bool:
+147 |         """Validate an encoded path_len byte.
+148 | 
+149 |         Path length in bytes must never exceed MAX_PATH_SIZE (64): at most 64
+150 |         one-byte hops, 32 two-byte hops, or 21 three-byte hops. Returns False
+151 |         for hash_size == 4 (reserved) or if the total path bytes would exceed
+152 |         MAX_PATH_SIZE.
+153 |         """
+154 |         hash_size = (path_len_byte >> PATH_HASH_SIZE_SHIFT) + 1
+155 |         if hash_size > 3:
+156 |             return False
+157 |         hash_count = path_len_byte & PATH_HASH_COUNT_MASK
+158 |         return hash_count * hash_size <= MAX_PATH_SIZE
+159 | 
+160 |     @staticmethod
+161 |     def is_path_at_max_hops(path_len_byte: int) -> bool:
+162 |         """True if path has reached maximum hops for its hash size (do not retransmit).
+163 | 
+164 |         Measures hops, not raw bytes. Max hops depend on hash size and MAX_PATH_SIZE:
+165 |         - 1-byte hashes: 63 hops (63 bytes)
+166 |         - 2-byte hashes: 32 hops (64 bytes)
+167 |         - 3-byte hashes: 21 hops (63 bytes)
+168 |         """
+169 |         if path_len_byte == 0:
+170 |             return False
+171 |         hash_size = PathUtils.get_path_hash_size(path_len_byte)
+172 |         if hash_size > 3:
+173 |             return False
+174 |         hash_count = path_len_byte & PATH_HASH_COUNT_MASK
+175 |         max_hops = min(PATH_HASH_COUNT_MASK, MAX_PATH_SIZE // hash_size)
+176 |         return hash_count >= max_hops
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Repeater</strong> — <code>repeater/engine.py</code> (L768–L779)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/engine.py#L768-L779)
+
+```python
+768 |     def validate_packet(self, packet: Packet) -> Tuple[bool, str]:
+769 | 
+770 |         if not packet or not packet.payload:
+771 |             return False, "Empty payload"
+772 | 
+773 |         if len(packet.path or []) >= MAX_PATH_SIZE:
+774 |             return (
+775 |                 False,
+776 |                 f"Path length {len(packet.path or [])} exceeds MAX_PATH_SIZE ({MAX_PATH_SIZE})",
+777 |             )
+778 | 
+779 |         return True, ""
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Repeater</strong> — <code>repeater/engine.py</code> (L980–L1023)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_repeater/blob/dev/repeater/engine.py#L980-L1023)
+
+```python
+ 980 |     def direct_forward(self, packet: Packet, packet_hash: Optional[str] = None) -> Optional[Packet]:
+ 981 |         """Forward a DIRECT packet, removing the first hop from the path.
+ 982 | 
+ 983 |         INVARIANT: purely synchronous — no await points.  The is_duplicate +
+ 984 |         mark_seen pair is atomic within the asyncio event loop.  Do NOT add any
+ 985 |         await here without revisiting that invariant in __call__ / process_packet.
+ 986 |         """
+ 987 |         # Validate packet (empty payload, oversized path, etc.)
+ 988 |         valid, reason = self.validate_packet(packet)
+ 989 |         if not valid:
+ 990 |             packet.drop_reason = reason
+ 991 |             return None
+ 992 | 
+ 993 |         # Check if packet is marked do-not-retransmit
+ 994 |         if packet.is_marked_do_not_retransmit():
+ 995 |             if not packet.drop_reason:
+ 996 |                 packet.drop_reason = "Marked do not retransmit"
+ 997 |             return None
+ 998 | 
+ 999 |         hash_size = packet.get_path_hash_size()
+1000 |         hop_count = packet.get_path_hash_count()
+1001 | 
+1002 |         # Check if we're the next hop
+1003 |         if not packet.path or len(packet.path) < hash_size:
+1004 |             packet.drop_reason = "Direct: no path"
+1005 |             return None
+1006 | 
+1007 |         next_hop = bytes(packet.path[:hash_size])
+1008 |         if next_hop != self.local_hash_bytes[:hash_size]:
+1009 |             packet.drop_reason = "Direct: not for us"
+1010 |             return None
+1011 | 
+1012 |         # Suppress duplicates — pass pre-computed hash to avoid a second SHA-256.
+1013 |         if self.is_duplicate(packet, packet_hash=packet_hash):
+1014 |             packet.drop_reason = "Duplicate"
+1015 |             return None
+1016 | 
+1017 |         self.mark_seen(packet, packet_hash=packet_hash)
+1018 | 
+1019 |         # Remove first hash entry (hash_size bytes)
+1020 |         packet.path = bytearray(packet.path[hash_size:])
+1021 |         packet.path_len = PathUtils.encode_path_len(hash_size, hop_count - 1)
+1022 | 
+1023 |         return packet
+```
+
+</details>

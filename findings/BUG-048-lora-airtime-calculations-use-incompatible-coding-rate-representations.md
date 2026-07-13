@@ -1,0 +1,269 @@
+# BUG-048 — LoRa airtime calculations use incompatible coding-rate representations
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **High** |
+| Area | Radio timing |
+| Affected components | OpenHop Core |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+OpenHop stores MeshCore/companion coding rate as denominator 5–8, but two airtime implementations treat it as RadioLib's index 1–4. One clamps every 5–8 value to 4; another multiplies by cr + 4, yielding factors 9–12. To fix it, choose one public representation—5–8 to match the companion protocol—and convert to a 1–4 index only inside formulas that require it.
+
+## What happens
+
+OpenHop stores MeshCore/companion coding rate as denominator 5–8, but two airtime implementations treat it as RadioLib's index 1–4. One clamps every 5–8 value to 4; another multiplies by cr + 4, yielding factors 9–12. A third simplified formula also omits standard header/CRC/preamble terms and uses fixed low-data-rate optimization.
+
+These estimates drive request timeouts, ACK delays, TX timeouts, and retry cadence, so the error changes observable network behavior even when the radio itself is configured correctly.
+
+## How official MeshCore handles it
+
+MeshCore delegates getEstAirtimeFor to RadioLib getTimeOnAir using the actual radio configuration. Companion values 5–8 mean coding rates 4/5 through 4/8.
+
+## How the OpenHop stack handles it
+
+**OpenHop Core:** companion/timing.py clamps cr to 1–4 although callers pass NodePrefs.coding_rate 5–8. PacketTimingUtils and SX1262Wrapper use cr + 4 directly with stored 5–8 values. The lower SX126x driver confirms its public setter expects denominator 5–8 and subtracts four only at the hardware boundary.
+
+## What needs to change
+
+Choose one public representation—5–8 to match the companion protocol—and convert to a 1–4 index only inside formulas that require it. Replace all estimators with one tested Semtech/RadioLib-equivalent implementation including explicit header, CRC, preamble + 4.25, LDRO, ceiling, and actual bandwidth. Validate against RadioLib vectors across SF, BW, CR, and payload length.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`src/helpers/radiolib/RadioLibWrappers.cpp` L149–L151](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/radiolib/RadioLibWrappers.cpp#L149-L151) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/companion/timing.py` L36–L66](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/timing.py#L36-L66) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/protocol/packet_utils.py` L364–L410](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/protocol/packet_utils.py#L364-L410) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/hardware/sx1262_wrapper.py` L919–L965](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/hardware/sx1262_wrapper.py#L919-L965) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/hardware/lora/LoRaRF/SX126x.py` L691–L733](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/hardware/lora/LoRaRF/SX126x.py#L691-L733) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/helpers/radiolib/RadioLibWrappers.cpp</code> (L149–L151)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/radiolib/RadioLibWrappers.cpp#L149-L151)
+
+```cpp
+149 | uint32_t RadioLibWrapper::getEstAirtimeFor(int len_bytes) {
+150 |   return _radio->getTimeOnAir(len_bytes) / 1000;
+151 | }
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/companion/timing.py</code> (L36–L66)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/companion/timing.py#L36-L66)
+
+```python
+36 | def estimate_airtime_ms(
+37 |     packet_length: int,
+38 |     sf: int,
+39 |     bw_hz: int,
+40 |     cr: int,
+41 |     preamble_symbols: int = 8,
+42 |     low_dr_opt: bool = None,
+43 | ) -> float:
+44 |     """Estimate LoRa airtime (ms) for a packet, per the Semtech formula.
+45 | 
+46 |     Mirrors ``SX1262Wrapper`` airtime math: explicit header, CRC on. ``cr`` is
+47 |     the MeshCore coding-rate index (1->4/5 .. 4->4/8). ``packet_length`` is the
+48 |     full on-air byte length (use ``Packet.get_raw_length()``).
+49 |     """
+50 |     sf = max(6, min(12, int(sf)))
+51 |     bw_hz = int(bw_hz) or 250000
+52 |     cr = max(1, min(4, int(cr)))
+53 |     if low_dr_opt is None:
+54 |         low_dr_opt = sf >= 11 and bw_hz <= 125000
+55 |     ldro = 1 if low_dr_opt else 0
+56 | 
+57 |     symbol_time = (1 << sf) / float(bw_hz)
+58 |     preamble_time = (preamble_symbols + 4.25) * symbol_time
+59 |     tmp = 8 * packet_length - 4 * sf + 28 + 16 * 1 - 20 * 0  # crc=1, explicit header
+60 |     denom = 4 * (sf - 2 * ldro)
+61 |     if tmp > 0 and denom > 0:
+62 |         payload_symbols = 8 + max(math.ceil(tmp / denom) * (cr + 4), 0)
+63 |     else:
+64 |         payload_symbols = 8
+65 |     payload_time = payload_symbols * symbol_time
+66 |     return (preamble_time + payload_time) * 1000.0
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/protocol/packet_utils.py</code> (L364–L410)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/protocol/packet_utils.py#L364-L410)
+
+```python
+364 |     def estimate_airtime_ms(packet_length_bytes: int, radio_config: dict = None) -> float:
+365 |         """
+366 |         Estimate LoRa packet airtime in milliseconds based on packet size and radio parameters.
+367 | 
+368 |         Args:
+369 |             packet_length_bytes: Total packet length including headers
+370 |             radio_config: Radio configuration dict with spreading_factor, bandwidth, etc.
+371 |                          Can include 'measured_airtime_ms' for actual measured value
+372 | 
+373 |         Returns:
+374 |             Estimated airtime in milliseconds
+375 |         """
+376 |         if radio_config is None:
+377 |             radio_config = {
+378 |                 "spreading_factor": 10,
+379 |                 "bandwidth": 250000,  # 250kHz
+380 |                 "coding_rate": 5,
+381 |                 "preamble_length": 8,
+382 |             }
+383 | 
+384 |         if "measured_airtime_ms" in radio_config:
+385 |             return radio_config["measured_airtime_ms"]
+386 | 
+387 |         sf = radio_config.get("spreading_factor", 10)
+388 |         bw = radio_config.get("bandwidth", 250000)  # Hz or kHz - convert to Hz if needed
+389 |         cr = radio_config.get("coding_rate", 5)
+390 |         preamble = radio_config.get("preamble_length", 8)
+391 | 
+392 |         # Convert bandwidth to Hz if it's in kHz (values < 1000 are assumed to be kHz)
+393 |         if bw < 1000:
+394 |             bw = bw * 1000  # Convert kHz to Hz
+395 | 
+396 |         symbol_time = (2**sf) / bw  # seconds per symbol
+397 | 
+398 |         # Preamble time
+399 |         preamble_time = preamble * symbol_time
+400 | 
+401 |         # Payload symbols (simplified)
+402 |         payload_symbols = 8 + max(0, (packet_length_bytes * 8 - 4 * sf + 28) // (4 * (sf - 2))) * (
+403 |             cr + 4
+404 |         )
+405 |         payload_time = payload_symbols * symbol_time
+406 | 
+407 |         total_time_ms = (preamble_time + payload_time) * 1000
+408 | 
+409 |         # Add some overhead for processing and turnaround
+410 |         return max(total_time_ms, 50.0)  # Minimum 50ms
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/hardware/sx1262_wrapper.py</code> (L919–L965)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/hardware/sx1262_wrapper.py#L919-L965)
+
+```python
+919 |     def _calculate_tx_timeout(self, packet_length: int) -> tuple[int, int]:
+920 |         """
+921 |         Calculate the LoRa packet airtime and transmission timeout using the standard
+922 |         Semtech formula.
+923 | 
+924 |         This method implements the LoRa airtime calculation as described in the Semtech
+925 |         LoRa Modem Designer's Guide (AN1200.13, section 4.1), taking into account the
+926 |         following parameters:
+927 |             - Spreading Factor (SF)
+928 |             - Bandwidth (BW)
+929 |             - Coding Rate (CR)
+930 |             - Preamble length
+931 |             - Explicit/implicit header mode (always explicit here)
+932 |             - CRC enabled (always enabled here)
+933 |             - Low Data Rate Optimization (enabled if SF >= 11 and BW <= 125 kHz)
+934 |             - Payload length (packet_length)
+935 | 
+936 |         Returns:
+937 |             timeout_ms (int): Calculated packet transmission timeout in milliseconds
+938 |                 (airtime + margin).
+939 |             driver_timeout (int): Timeout value in units required by the radio driver
+940 |                 (typically ms * 64).
+941 |         """
+942 |         sf = self.spreading_factor
+943 |         bw_hz = int(self.bandwidth)  # your class already stores Hz
+944 |         cr = self.coding_rate  # 1→4/5, 2→4/6, 3→4/7, 4→4/8
+945 |         preamble = self.preamble_length
+946 |         crc_on = True  # you always enable CRC
+947 |         explicit_header = True  # you always use explicit header
+948 |         low_dr_opt = 1 if (sf >= 11 and bw_hz <= 125000) else 0
+949 |         symbol_time = (1 << sf) / float(bw_hz)
+950 |         preamble_time = (preamble + 4.25) * symbol_time
+951 |         ih = 0 if explicit_header else 1
+952 |         crc = 1 if crc_on else 0
+953 | 
+954 |         tmp = 8 * packet_length - 4 * sf + 28 + 16 * crc - 20 * ih
+955 | 
+956 |         denom = 4 * (sf - 2 * low_dr_opt)
+957 | 
+958 |         if tmp > 0:
+959 |             payload_symbols = 8 + max(math.ceil(tmp / denom) * (cr + 4), 0)
+960 |         else:
+961 |             payload_symbols = 8
+962 | 
+963 |         payload_time = payload_symbols * symbol_time
+964 |         air_time_ms = (preamble_time + payload_time) * 1000.0
+965 |         timeout_ms = math.ceil(air_time_ms) + 1000
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/hardware/lora/LoRaRF/SX126x.py</code> (L691–L733)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/hardware/lora/LoRaRF/SX126x.py#L691-L733)
+
+```python
+691 |     def setLoRaModulation(self, sf: int, bw: int, cr: int, ldro: bool = False):
+692 |         self._sf = sf
+693 |         self._bw = bw
+694 |         self._cr = cr
+695 |         self._ldro = ldro
+696 | 
+697 |         # valid spreading factor is between 5 and 12
+698 |         if sf > 12:
+699 |             sf = 12
+700 |         elif sf < 5:
+701 |             sf = 5
+702 |         # select bandwidth options
+703 |         if bw < 9100:
+704 |             bw = self.BW_7800
+705 |         elif bw < 13000:
+706 |             bw = self.BW_10400
+707 |         elif bw < 18200:
+708 |             bw = self.BW_15600
+709 |         elif bw < 26000:
+710 |             bw = self.BW_20800
+711 |         elif bw < 36500:
+712 |             bw = self.BW_31250
+713 |         elif bw < 52100:
+714 |             bw = self.BW_41700
+715 |         elif bw < 93800:
+716 |             bw = self.BW_62500
+717 |         elif bw < 187500:
+718 |             bw = self.BW_125000
+719 |         elif bw < 375000:
+720 |             bw = self.BW_250000
+721 |         else:
+722 |             bw = self.BW_500000
+723 |         # valid code rate denominator is between 4 and 8
+724 |         cr = cr - 4
+725 |         if cr > 4:
+726 |             cr = 0
+727 |         # set low data rate option
+728 |         if ldro:
+729 |             ldro = self.LDRO_ON
+730 |         else:
+731 |             ldro = self.LDRO_OFF
+732 | 
+733 |         self.setModulationParamsLoRa(sf, bw, cr, ldro)
+```
+
+</details>

@@ -1,0 +1,88 @@
+# BUG-017 — Transport-scoped flood DMs are classified as direct
+
+[← Bug list](../README.md#bug-list)
+
+| Field | Value |
+|---|---|
+| Severity | **High** |
+| Area | Text receive routing |
+| Affected components | OpenHop Core |
+| Status | Confirmed from the supplied source snapshots |
+
+## TL;DR
+
+OpenHop recognizes only route value 1 as flood when handling an encrypted direct message. Route value 0 is MeshCore's transport-scoped flood, so OpenHop follows the direct ACK path for a flood packet. To fix it, use a shared is-flood predicate covering ROUTE_TYPE_TRANSPORT_FLOOD and ROUTE_TYPE_FLOOD. Audit every equality check on the route field for the same mistake.
+
+## What happens
+
+OpenHop recognizes only route value 1 as flood when handling an encrypted direct message. Route value 0 is MeshCore's transport-scoped flood, so OpenHop follows the direct ACK path for a flood packet.
+
+## How official MeshCore handles it
+
+Packet::isRouteFlood treats both flood route forms as flood. BaseChatMesh consequently creates a PATH return for either form.
+
+## How the OpenHop stack handles it
+
+**OpenHop Core:** TextHandler sets is_flood only when route_type == 1. A transport flood takes the direct/known-path ACK branch and receives different routing metadata.
+
+## What needs to change
+
+Use a shared is-flood predicate covering ROUTE_TYPE_TRANSPORT_FLOOD and ROUTE_TYPE_FLOOD. Audit every equality check on the route field for the same mistake.
+
+## Source links
+
+These links point to the branches reviewed for this audit. Line numbers can move after later commits.
+
+| Project | Why it matters | Source |
+|---|---|---|
+| MeshCore | Reference | [`src/Packet.h` L64–L65](https://github.com/meshcore-dev/MeshCore/blob/main/src/Packet.h#L64-L65) |
+| MeshCore | Reference | [`src/helpers/BaseChatMesh.cpp` L236–L243](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/BaseChatMesh.cpp#L236-L243) |
+| OpenHop Core | Affected implementation | [`src/openhop_core/node/handlers/text.py` L270–L273](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/node/handlers/text.py#L270-L273) |
+
+## Relevant source excerpts
+
+The excerpts are collapsed to keep the report easy to scan.
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/Packet.h</code> (L64–L65)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/Packet.h#L64-L65)
+
+```cpp
+64 |   bool isRouteFlood() const { return getRouteType() == ROUTE_TYPE_FLOOD || getRouteType() == ROUTE_TYPE_TRANSPORT_FLOOD; }
+65 |   bool isRouteDirect() const { return getRouteType() == ROUTE_TYPE_DIRECT || getRouteType() == ROUTE_TYPE_TRANSPORT_DIRECT; }
+```
+
+</details>
+
+<details>
+<summary><strong>MeshCore</strong> — <code>src/helpers/BaseChatMesh.cpp</code> (L236–L243)</summary>
+
+[Open the cited range on GitHub](https://github.com/meshcore-dev/MeshCore/blob/main/src/helpers/BaseChatMesh.cpp#L236-L243)
+
+```cpp
+236 |       if (packet->isRouteFlood()) {
+237 |         // let this sender know path TO here, so they can use sendDirect(), and ALSO encode the ACK
+238 |         mesh::Packet* path = createPathReturn(from.id, secret, packet->path, packet->path_len,
+239 |                                                 PAYLOAD_TYPE_ACK, (uint8_t *) &ack_hash, 6);
+240 |         if (path) sendFloodScoped(from, path, TXT_ACK_DELAY);
+241 |       } else {
+242 |         sendAckTo(from, ack_hash, 6);
+243 |       }
+```
+
+</details>
+
+<details>
+<summary><strong>OpenHop Core</strong> — <code>src/openhop_core/node/handlers/text.py</code> (L270–L273)</summary>
+
+[Open the cited range on GitHub](https://github.com/openhop-dev/openhop_core/blob/dev/src/openhop_core/node/handlers/text.py#L270-L273)
+
+```python
+270 |         # Determine message routing type from packet header
+271 |         route_type = packet.get_route_type()
+272 |         is_flood = route_type == 1  # ROUTE_TYPE_FLOOD = 1
+273 | 
+```
+
+</details>
