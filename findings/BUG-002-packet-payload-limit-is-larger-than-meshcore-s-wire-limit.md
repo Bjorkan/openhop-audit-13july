@@ -13,6 +13,8 @@
 
 OpenHop allows payloads up to 256 bytes even though the included MeshCore packet buffer supports 184 payload bytes. OpenHop can construct packets that cannot exist in MeshCore's packet representation. To fix it, use 184 as the protocol payload ceiling and enforce it at packet creation, deserialization, and every command that queues a packet. Keep transport framing limits separate from packet payload limits.
 
+**Current status: 🟡 Partially fixed.** The wire ceiling is now 184 bytes and deserialization enforces it, but the generic packet constructor still assigns an arbitrary payload length without validation and serialization does not add a final ceiling check. This leaves construction paths outside the individually hardened commands able to exceed the limit; compare [Packet.read_from](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/protocol/packet.py#L462-L479) with [PacketBuilder._create_packet](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/protocol/packet_builder.py#L77-L83). The implemented limit and decode-side checks were introduced in [`bd3b4bb` — `fix(constants): update MAX_PACKET_PAYLOAD and adjust related calculations`](https://github.com/openhop-dev/openhop_core/commit/bd3b4bb).
+
 ## What happens
 
 OpenHop allows payloads up to 256 bytes even though the included MeshCore packet buffer supports 184 payload bytes. OpenHop can construct packets that cannot exist in MeshCore's packet representation.

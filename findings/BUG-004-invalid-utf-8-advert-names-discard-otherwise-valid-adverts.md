@@ -13,6 +13,8 @@
 
 OpenHop records invalid UTF-8 name bytes only as diagnostic metadata, then the advert handler rejects the contact because no decoded name is present. MeshCore copies the bounded name bytes as C text without requiring valid UTF-8. To fix it, preserve the wire bytes and decode only for display with a reversible or replacement policy. Parsing must not discard the advert merely because its display name is not valid UTF-8.
 
+**Current status: ✅ Fully fixed.** Invalid UTF-8 no longer invalidates an otherwise authenticated advert: the parser preserves the raw name bytes and produces replacement-decoded display text, allowing the contact to continue through the advert pipeline. The relevant behavior is in [the advert parser](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/protocol/utils.py#L151-L164). This fix was introduced in [`b36bb12` — `fix(utils): improve error handling in parse_advert_payload and decode_appdata functions`](https://github.com/openhop-dev/openhop_core/commit/b36bb12).
+
 ## What happens
 
 OpenHop records invalid UTF-8 name bytes only as diagnostic metadata, then the advert handler rejects the contact because no decoded name is present. MeshCore copies the bounded name bytes as C text without requiring valid UTF-8.

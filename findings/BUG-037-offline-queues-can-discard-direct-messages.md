@@ -13,6 +13,8 @@
 
 Both OpenHop offline queues can delete an existing direct message when they reach capacity. MeshCore protects direct messages by evicting the oldest channel message first and rejecting a new insertion when no channel message can be removed. The same explicit policy is needed in Core memory and Repeater SQLite storage.
 
+**Current status: 🔴 Not fixed.** Core still uses deque(maxlen), which silently evicts the oldest item without protecting direct messages, and the SQLite retention trim likewise deletes oldest rows without preferring channel messages. The required MeshCore eviction policy is absent from [MessageQueue](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/message_queue.py#L12-L36) and [companion_push_message](https://github.com/openhop-dev/openhop_repeater/blob/fix/all-the-things/repeater/data_acquisition/sqlite_handler.py#L3323-L3383).
+
 ## What happens
 
 ### OpenHop Core

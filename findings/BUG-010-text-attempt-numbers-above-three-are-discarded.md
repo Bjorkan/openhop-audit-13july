@@ -13,6 +13,8 @@
 
 MeshCore supports retry attempt values above three by storing the low two bits in flags and hiding the full attempt byte after a NUL at the plaintext tail. OpenHop masks the input to two bits immediately, losing the full value. To fix it, keep the original attempt separately, validate the smaller extended-text size limit, encode the low bits in flags, and append NUL plus the original attempt exactly as MeshCore does.
 
+**Current status: ✅ Fully fixed.** The full attempt value is retained separately, its low two bits are encoded in the flags byte, and attempts above three append NUL plus the original attempt byte. The corrected wire layout is implemented in [create_text_message_packet](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/protocol/packet_builder.py#L990-L1020). This fix was introduced in [`cc67cc3` — `fix(text): preserve retry attempts above three in outgoing messages`](https://github.com/openhop-dev/openhop_core/commit/cc67cc3).
+
 ## What happens
 
 MeshCore supports retry attempt values above three by storing the low two bits in flags and hiding the full attempt byte after a NUL at the plaintext tail. OpenHop masks the input to two bits immediately, losing the full value.

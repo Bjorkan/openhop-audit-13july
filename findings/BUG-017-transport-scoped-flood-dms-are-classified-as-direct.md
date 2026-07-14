@@ -13,6 +13,8 @@
 
 OpenHop recognizes only route value 1 as flood when handling an encrypted direct message. Route value 0 is MeshCore's transport-scoped flood, so OpenHop follows the direct ACK path for a flood packet. To fix it, use a shared is-flood predicate covering ROUTE_TYPE_TRANSPORT_FLOOD and ROUTE_TYPE_FLOOD. Audit every equality check on the route field for the same mistake.
 
+**Current status: ✅ Fully fixed.** Text routing now uses packet.is_route_flood(), which covers both ordinary and transport-scoped flood route values before selecting ACK behavior. The corrected predicate is in [TextMessageHandler](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/node/handlers/text.py#L271-L318). This fix was introduced in [`681b247` — `fix(text): treat transport-scoped flood DMs as flood`](https://github.com/openhop-dev/openhop_core/commit/681b247).
+
 ## What happens
 
 OpenHop recognizes only route value 1 as flood when handling an encrypted direct message. Route value 0 is MeshCore's transport-scoped flood, so OpenHop follows the direct ACK path for a flood packet.

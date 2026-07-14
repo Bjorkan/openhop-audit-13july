@@ -13,6 +13,8 @@
 
 Several OpenHop handlers cannot distinguish missing objects from packet allocation/send failure and return the wrong MeshCore error. Binary request and path-discovery failure become NOT_FOUND; self-advert construction failure becomes BAD_STATE. To fix it, return structured failure reasons from bridge methods and map missing contact, invalid state, and allocation/transmit failure separately to the exact firmware codes.
 
+**Current status: 🔴 Not fixed.** SentResult still has no structured failure reason, and the command handlers therefore cannot distinguish missing contact, invalid state, allocation failure, and transmit failure with the exact firmware error classes. The model remains limited in [models.py](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/models.py#L163-L170).
+
 ## What happens
 
 Several OpenHop handlers cannot distinguish missing objects from packet allocation/send failure and return the wrong MeshCore error. Binary request and path-discovery failure become NOT_FOUND; self-advert construction failure becomes BAD_STATE.

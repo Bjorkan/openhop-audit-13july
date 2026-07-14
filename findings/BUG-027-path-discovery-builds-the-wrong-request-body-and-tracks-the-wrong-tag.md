@@ -13,6 +13,8 @@
 
 OpenHop generates tag_int, places it inside data along with a duplicate request-type byte, then create_protocol_request prepends a different timestamp/tag and another protocol code. The repeater echoes the outer timestamp, while OpenHop records the inner random tag. To fix it, build exactly the nine MeshCore request bytes and use the builder's returned timestamp as pending_discovery. Add a decrypted byte-for-byte fixture and response-correlation test.
 
+**Current status: ✅ Fully fixed.** The discovery request body is now the nine-byte MeshCore layout, and pending discovery is keyed with the timestamp/tag returned by the packet builder rather than a second inner random value. The corrected construction and tracking are in [send_path_discovery](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/base_send.py#L300-L327). This fix was introduced in [`403971c` — `fix(companion): align path discovery request payload`](https://github.com/openhop-dev/openhop_core/commit/403971c6eb053ab3d6b71f0664097e95a403b407).
+
 ## What happens
 
 OpenHop generates tag_int, places it inside data along with a duplicate request-type byte, then create_protocol_request prepends a different timestamp/tag and another protocol code. The repeater echoes the outer timestamp, while OpenHop records the inner random tag.

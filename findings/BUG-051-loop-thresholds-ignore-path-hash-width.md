@@ -13,6 +13,8 @@
 
 The repeater selects one occurrence threshold for each minimal, moderate, or strict loop-detection mode regardless of whether path hashes are one, two, or three bytes wide. To fix it, replace `LOOP_DETECT_MAX_COUNTERS` with a mode-to-hash-width-to-threshold table and explicitly reject the reserved four-byte width. Test every mode and width at threshold minus one and at threshold.
 
+**Current status: ✅ Fully fixed.** Loop thresholds are now indexed by both mode and one-, two-, or three-byte hash width, and generic validation rejects the reserved four-byte width. The table and rejection are in [engine.py](https://github.com/openhop-dev/openhop_repeater/blob/fix/all-the-things/repeater/engine.py#L37-L43) and [validate_packet](https://github.com/openhop-dev/openhop_repeater/blob/fix/all-the-things/repeater/engine.py#L775-L789). This fix was introduced in [`6f61365` — `feat: enhance flood loop detection with hash size validation and update tests`](https://github.com/openhop-dev/openhop_repeater/commit/6f61365).
+
 ## What happens
 
 The repeater selects one occurrence threshold for each minimal, moderate, or strict loop-detection mode regardless of whether path hashes are one, two, or three bytes wide.

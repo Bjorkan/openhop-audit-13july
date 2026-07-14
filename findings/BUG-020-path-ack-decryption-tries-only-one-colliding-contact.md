@@ -13,6 +13,8 @@
 
 PATH packets carry a one-byte source hash. Multiple contacts can share it. OpenHop selects one contact and gives up if its HMAC fails, so ACKs from any other colliding contact are lost. To fix it, enumerate all contacts with the source prefix and attempt authenticated decryption for each, stopping only on a valid MAC. Use the matched full public key for subsequent state updates.
 
+**Current status: 🔴 Not fixed.** Encrypted PATH ACK handling still resolves a single contact with _find_contact_by_hash and attempts decryption only with that contact's secret. It does not enumerate all same-prefix contacts, so collisions remain unresolved in [AckHandler._try_decrypt_encrypted_ack](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/node/handlers/ack.py#L99-L141).
+
 ## What happens
 
 PATH packets carry a one-byte source hash. Multiple contacts can share it. OpenHop selects one contact and gives up if its HMAC fails, so ACKs from any other colliding contact are lost.

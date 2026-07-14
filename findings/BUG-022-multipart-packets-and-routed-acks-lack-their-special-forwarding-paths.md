@@ -13,6 +13,8 @@
 
 MeshCore does not forward multipart data and ACKs like an ordinary directed packet. It updates multipart state and routes embedded/early ACKs specially. OpenHop implements neither receive-forwarding branch. To fix it, port both specialized branches and their dedupe/remaining-count semantics before enabling general direct forwarding. Test ACK propagation through at least one intermediate node and multipart fragments in both directions.
 
+**Current status: 🟡 Partially fixed.** The router now extracts embedded ACK CRCs from multipart ACK wrappers, so one part of the special handling exists. Multipart fragment state, remaining-count updates, deduplication, and the dedicated routed-forwarding branches are still absent before the ordinary engine path, as shown by [the limited multipart branch](https://github.com/openhop-dev/openhop_repeater/blob/fix/all-the-things/repeater/packet_router.py#L547-L555) followed by [general forwarding](https://github.com/openhop-dev/openhop_repeater/blob/fix/all-the-things/repeater/packet_router.py#L728-L733). This limited multipart-ACK handling already existed at the reviewed Repeater branch base, [`5d75cb9`](https://github.com/openhop-dev/openhop_repeater/commit/5d75cb9ad409bd73520e0f7530f3ee7bdf7c783e), rather than being introduced by one of the new fix-branch commits.
+
 ## What happens
 
 MeshCore does not forward multipart data and ACKs like an ordinary directed packet. It updates multipart state and routes embedded/early ACKs specially. OpenHop implements neither receive-forwarding branch.

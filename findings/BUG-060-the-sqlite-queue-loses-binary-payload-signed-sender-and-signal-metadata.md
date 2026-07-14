@@ -13,6 +13,8 @@
 
 The frame-server persistence hook moves every message from the in-memory queue to SQLite. The table and reconstruction retain only basic fields and omit `snr`, `rssi`, `sender_prefix`, `channel_data_type`, and `channel_data_payload`. To fix it, migrate `companion_messages` with BLOB and numeric columns for every `QueuedMessage` field, write and read them atomically in push, pop, and load, and reconstruct the full model.
 
+**Current status: 🟡 Partially fixed.** sender_prefix now has a SQLite column and survives push/load/pop, fixing the signed-sender portion. The schema and queries still omit snr, rssi, channel_data_type, and channel_data_payload, so binary channel data and signal metadata are still lost in [companion_load_messages and companion_push_message](https://github.com/openhop-dev/openhop_repeater/blob/fix/all-the-things/repeater/data_acquisition/sqlite_handler.py#L3295-L3366). The implemented sender-prefix persistence was merged in [`7d30dd4` — `Companion/post refactor cleanup`](https://github.com/openhop-dev/openhop_repeater/commit/7d30dd42476051bd96461368b14f1b9cb0cb6917).
+
 ## What happens
 
 The frame-server persistence hook moves every message from the in-memory queue to SQLite. The table and reconstruction retain only basic fields and omit `snr`, `rssi`, `sender_prefix`, `channel_data_type`, and `channel_data_payload`. The hook also ignores a `False` SQLite insert result and removes the in-memory entry anyway.

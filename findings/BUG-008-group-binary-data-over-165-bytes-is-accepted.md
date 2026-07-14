@@ -13,6 +13,8 @@
 
 OpenHop's core send path accepts group data up to 255 bytes, and its companion command gate permits 167. The included MeshCore sendGroupData caps the application data at 165 bytes so the type, length, MAC, and worst-case padded ciphertext fit every packet. To fix it, set the public GRP_DATA limit to 165 and enforce it before building plaintext. Test 165 succeeds and 166 fails without queueing or reporting SENT.
 
+**Current status: ✅ Fully fixed.** The public limit is now derived as 165 bytes, and both the bridge send path and companion command reject larger payloads before packet construction or a SENT response. See [MAX_GROUP_DATA_LENGTH](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/constants.py#L309-L312) and [the command gate](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/frame_server/commands_messaging.py#L125-L133). This fix was introduced in [`f8c02e6` — `fix(group): cap group binary data at 165 bytes`](https://github.com/openhop-dev/openhop_core/commit/f8c02e6).
+
 ## What happens
 
 OpenHop's core send path accepts group data up to 255 bytes, and its companion command gate permits 167. The included MeshCore sendGroupData caps the application data at 165 bytes so the type, length, MAC, and worst-case padded ciphertext fit every packet. Thus lengths 166–167 can return success only in OpenHop's companion implementation.

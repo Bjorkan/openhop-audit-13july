@@ -13,6 +13,8 @@
 
 OpenHop removes trailing NUL bytes and then applies `.strip()` to decoded advert names. MeshCore terminates the bounded C string but does not remove transmitted leading or trailing spaces. To fix it, remove presentation trimming from advert parsing. Preserve the decoded bounded name value after NUL termination; derive a separate trimmed label only in UI code when desired. Add fixtures for leading and trailing spaces.
 
+**Current status: ✅ Fully fixed.** The parser now terminates the bounded name at the first NUL but no longer applies whitespace trimming, so transmitted leading and trailing spaces survive parsing. This is implemented in [the name decoding block](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/protocol/utils.py#L151-L164). This fix was introduced in [`d2fc6ad` — `fix(advert): stop trimming spaces from parsed advert names`](https://github.com/openhop-dev/openhop_core/commit/d2fc6ad).
+
 ## What happens
 
 OpenHop removes trailing NUL bytes and then applies `.strip()` to decoded advert names. MeshCore terminates the bounded C string but does not remove transmitted leading or trailing spaces.

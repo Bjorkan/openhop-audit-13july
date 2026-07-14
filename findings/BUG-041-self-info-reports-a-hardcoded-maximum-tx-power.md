@@ -13,6 +13,8 @@
 
 Companion SELF_INFO always reports 22 dBm because Core hardcodes the value and Repeater never supplies the active radio limit. Core needs a read-only maximum-power capability, and Repeater must provide the validated limit of its active board and radio backend.
 
+**Current status: 🔴 Not fixed.** SELF_INFO still writes a literal 22 as the maximum TX-power capability, and no Repeater radio-backend capability is supplied to replace it. The hardcoded byte remains in [commands_device.py](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/frame_server/commands_device.py#L46-L53).
+
 ## What happens
 
 ### OpenHop Core

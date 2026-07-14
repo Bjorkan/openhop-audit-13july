@@ -13,6 +13,8 @@
 
 PacketRouter has a branch for GRP_TXT but none for GRP_DATA or RAW_CUSTOM. Core CompanionBridge already has handlers for both, but `process_received_packet` is never called for them. To fix it, add explicit route-aware delivery: fan out GRP_DATA to companions that can authenticate the channel, and deliver RAW_CUSTOM when the packet is flood-local or at the final direct hop. Continue forwarding after the local callback where MeshCore does so.
 
+**Current status: 🔴 Not fixed.** PacketRouter still has an explicit GRP_TXT branch but no corresponding GRP_DATA or RAW_CUSTOM delivery branch before forwarding, despite Core CompanionBridge supporting those payload types. The missing routing remains apparent at [the end of payload dispatch](https://github.com/openhop-dev/openhop_repeater/blob/fix/all-the-things/repeater/packet_router.py#L717-L733).
+
 ## What happens
 
 PacketRouter has a branch for GRP_TXT but none for GRP_DATA or RAW_CUSTOM. Core CompanionBridge already has handlers for both, but `process_received_packet` is never called for them.

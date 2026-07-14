@@ -13,6 +13,8 @@
 
 A virtual companion can receive success for radio changes that only alter its stored preferences while the shared repeater radio remains unchanged. Core must gate mutations through an explicit capability result, and Repeater must reject shared-radio mutations from virtual companion sessions.
 
+**Current status: 🔴 Not fixed.** SET_RADIO_PARAMS and SET_TX_POWER still mutate bridge preferences and unconditionally reply OK, with no capability result or Repeater-side rejection for a virtual companion sharing the host radio. The false-success path remains in [commands_device.py](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/frame_server/commands_device.py#L284-L314).
+
 ## What happens
 
 ### OpenHop Core

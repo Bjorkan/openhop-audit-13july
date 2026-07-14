@@ -13,6 +13,8 @@
 
 When a PATH return has no extra data, MeshCore appends an extra-type byte and four random bytes inside the encrypted body. OpenHop appends only the type byte. Repeated returns for the same path can therefore encrypt to identical packets and hashes. To fix it, when no extra payload is supplied, append four cryptographically random bytes after the 0xFF type. Preserve the existing layout when real extra data exists. Test that identical calls produce different valid packets.
 
+**Current status: ✅ Fully fixed.** An empty PATH return now appends the 0xFF extra-type byte followed by four bytes from os.urandom, while real extra data retains its existing layout. The corrected construction is in [create_path_return](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/protocol/packet_builder.py#L916-L934). This fix was introduced in [`45616b1` — `fix(path): add random filler to empty PATH returns`](https://github.com/openhop-dev/openhop_core/commit/45616b1).
+
 ## What happens
 
 When a PATH return has no extra data, MeshCore appends an extra-type byte and four random bytes inside the encrypted body. OpenHop appends only the type byte. Repeated returns for the same path can therefore encrypt to identical packets and hashes.

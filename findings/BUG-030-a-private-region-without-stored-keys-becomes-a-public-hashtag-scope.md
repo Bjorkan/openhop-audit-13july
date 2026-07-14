@@ -13,6 +13,8 @@
 
 Private MeshCore region names begin with $. If no explicit keys are attached, OpenHop falls through to automatic name hashing and derives a public key for #$name. This silently changes a private/unusable region into a deterministic public scope. To fix it, branch on name.startswith("$") first and yield only stored private keys, including none. Do not fall through based on whether the key list is empty.
 
+**Current status: ✅ Fully fixed.** Private region names are now handled before public-name derivation and yield only explicitly stored private keys, including an empty set. The non-fallthrough branch is in [RegionMap._iter_region_keys](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/protocol/region_map.py#L49-L62). This fix was introduced in [`9f8defd` — `fix(region): do not auto-hash keyless private regions`](https://github.com/openhop-dev/openhop_core/commit/9f8defd).
+
 ## What happens
 
 Private MeshCore region names begin with $. If no explicit keys are attached, OpenHop falls through to automatic name hashing and derives a public key for #$name. This silently changes a private/unusable region into a deterministic public scope.

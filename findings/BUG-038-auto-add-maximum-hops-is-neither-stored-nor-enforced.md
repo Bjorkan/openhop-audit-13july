@@ -13,6 +13,8 @@
 
 MeshCore's auto-add configuration has a second byte limiting how many hops away an advert may be before automatic contact creation. OpenHop accepts and returns only the bitmask byte and auto-adds without that distance test. To fix it, add the persisted preference, accept/cap the optional command byte, return it, and reject automatic additions beyond the configured encoded hop count while still handling existing contacts as firmware does.
 
+**Current status: ✅ Fully fixed.** autoadd_max_hops is now a persisted preference, the companion commands read and return the optional byte, and new contacts are rejected when the encoded hop count reaches the configured cap while existing contacts still update. The enforcement is in [base_contacts.py](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/base_contacts.py#L232-L258). This fix was introduced in [`d061503` — `fix(contacts): store and enforce the auto-add maximum-hop limit`](https://github.com/openhop-dev/openhop_core/commit/d061503).
+
 ## What happens
 
 MeshCore's auto-add configuration has a second byte limiting how many hops away an advert may be before automatic contact creation. OpenHop accepts and returns only the bitmask byte and auto-adds without that distance test.

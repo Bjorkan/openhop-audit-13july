@@ -13,6 +13,8 @@
 
 OpenHop updates a contact without enforcing MeshCore's advertisement timestamp replay rule. A delayed or replayed advert can replace newer contact name, location, type, or application data. To fix it, compare the raw advertised timestamp before updating any persisted fields. Port MeshCore's exact equality and special-case rules and test new, equal, older, and wrap/restart scenarios.
 
+**Current status: ✅ Fully fixed.** Before any existing contact is updated, the advert event path now rejects timestamps less than or equal to the stored last_advert_timestamp, matching MeshCore's replay gate. The early return is in [base_events.py](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/base_events.py#L50-L62). This fix was introduced in [`acb2b70` — `fix(contacts): reject adverts that are not newer than the stored contact`](https://github.com/openhop-dev/openhop_core/commit/acb2b70).
+
 ## What happens
 
 OpenHop updates a contact without enforcing MeshCore's advertisement timestamp replay rule. A delayed or replayed advert can replace newer contact name, location, type, or application data.

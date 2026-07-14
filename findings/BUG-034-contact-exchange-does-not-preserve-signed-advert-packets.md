@@ -13,6 +13,8 @@
 
 OpenHop exports contacts through a custom unsigned record instead of the original signed MeshCore ADVERT, and the repeater database does not preserve the raw ADVERT across restarts. The stack must use verified raw ADVERT packets for import and export and persist those bytes in SQLite.
 
+**Current status: 🟡 Partially fixed.** Freshly received contacts now retain the verified raw advert packet and SHARE_CONTACT can replay it, but export_contact/import_contact still use the custom unsigned contact record and Repeater SQLite does not persist the raw advert blob. The live-session half is fixed while restart/import parity remains incomplete in [base_contacts.py](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/base_contacts.py#L65-L104). The implemented live-session raw-advert replay was introduced in [`b186e9c` — `fix(companion): Align CMD_SHARE_CONTACT with firmware advert replay`](https://github.com/openhop-dev/openhop_core/commit/b186e9c4eb662ffc2c2188bc6b5d589b872551d1).
+
 ## What happens
 
 ### OpenHop Core

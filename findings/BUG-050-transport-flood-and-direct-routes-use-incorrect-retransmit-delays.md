@@ -13,6 +13,8 @@
 
 `_calculate_tx_delay` treats only the exact `ROUTE_TYPE_FLOOD` value as flood. `TRANSPORT_FLOOD` receives the fixed direct delay. Direct routing also uses a fixed number of seconds, while the flood formula produces roughly half of MeshCore's random window. To fix it, use `packet.is_route_flood` and `packet.is_route_direct`, and implement the MeshCore formula using the same packet length, airtime, and factors. Keep origin-send delay separate from received-packet retransmit delay. Add deterministic RNG fixtures for all four route values.
 
+**Current status: ✅ Fully fixed.** Retransmit delay now classifies both transport and non-transport flood/direct routes through the shared predicates and uses the MeshCore 0-to-5-times-airtime random window with the appropriate route factor. Deterministic coverage for all four route values accompanies [the corrected calculation](https://github.com/openhop-dev/openhop_repeater/blob/fix/all-the-things/repeater/engine.py#L1065-L1106). This fix was introduced in [`a0eb0fc` — `feat: TX delay update calculation with route-aware random window and update tests`](https://github.com/openhop-dev/openhop_repeater/commit/a0eb0fc).
+
 ## What happens
 
 `_calculate_tx_delay` treats only the exact `ROUTE_TYPE_FLOOD` value as flood. `TRANSPORT_FLOOD` receives the fixed direct delay. Direct routing also uses a fixed number of seconds, while the flood formula produces roughly half of MeshCore's random window.

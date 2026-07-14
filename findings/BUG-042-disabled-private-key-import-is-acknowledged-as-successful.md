@@ -13,6 +13,8 @@
 
 Private-key import is intentionally disabled for a repeater-hosted virtual companion, because changing an identity affects routing, handler registration, persistence namespaces, and authenticated peer state. To fix it, keep identity import disabled in the repeater compatibility profile and return an explicit disabled or unsupported response.
 
+**Current status: 🔴 Not fixed.** The private-key import handler is still a disabled stub that replies OK, so clients are told the unsupported identity mutation succeeded. The unchanged behavior is in [commands_device.py](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/frame_server/commands_device.py#L331-L339).
+
 ## What happens
 
 Private-key import is intentionally disabled for a repeater-hosted virtual companion, because changing an identity affects routing, handler registration, persistence namespaces, and authenticated peer state. The implementation nevertheless acknowledges every import as successful while leaving the identity unchanged.

@@ -13,6 +13,8 @@
 
 OpenHop collapses a failed contact share into ERR_CODE_NOT_FOUND even when the contact exists. MeshCore distinguishes lookup failure from inability to allocate/send the advert packet. To fix it, resolve the contact first. Return NOT_FOUND only for absence and TABLE_FULL when packet/blob allocation or send fails.
 
+**Current status: ✅ Fully fixed.** SHARE_CONTACT now resolves the contact before sending, returns NOT_FOUND only when it is absent, and maps a present-contact send failure to TABLE_FULL. The corrected response mapping is in [commands_contacts.py](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/frame_server/commands_contacts.py#L184-L198). This fix was introduced in [`9850d4b` — `fix(companion): distinguish SHARE_CONTACT not-found from send failure`](https://github.com/openhop-dev/openhop_core/commit/9850d4b).
+
 ## What happens
 
 OpenHop collapses a failed contact share into ERR_CODE_NOT_FOUND even when the contact exists. MeshCore distinguishes lookup failure from inability to allocate/send the advert packet.

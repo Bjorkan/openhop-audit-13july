@@ -13,6 +13,8 @@
 
 The final four bytes of PUSH_CODE_SEND_CONFIRMED are the elapsed milliseconds from send to ACK. OpenHop hardcodes them to zero, removing information expected by companion clients. To fix it, record a monotonic send timestamp with each expected ACK and calculate the unsigned elapsed milliseconds on confirmation. Clear the same entry after emitting the push.
 
+**Current status: ✅ Fully fixed.** Expected ACK entries now carry monotonic send timestamps, confirmation calculates elapsed milliseconds and removes the matched entry, and the push frame writes that trip time instead of zero. See [base_send.py](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/base_send.py#L1032-L1055) and [push.py](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/frame_server/push.py#L139-L148). This fix was introduced in [`667c865` — `fix(companion): report the ACK round-trip time in SEND_CONFIRMED`](https://github.com/openhop-dev/openhop_core/commit/667c865).
+
 ## What happens
 
 The final four bytes of PUSH_CODE_SEND_CONFIRMED are the elapsed milliseconds from send to ACK. OpenHop hardcodes them to zero, removing information expected by companion clients.

@@ -13,6 +13,8 @@
 
 The path-length byte uses its top two bits to encode hash width and 0xFF for unknown. OpenHop decodes it with signed int8. The valid 3-byte-hash mode becomes negative and are later mistaken for unknown/invalid paths. To fix it, read the field as unsigned. Convert only the single sentinel 0xFF to an internal unknown representation at a clearly defined boundary, and preserve every other encoded byte.
 
+**Current status: ✅ Fully fixed.** The encoded path length is now read as an unsigned byte, and only the explicit 0xFF sentinel is converted to the internal unknown value. See [the contact import parser](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/frame_server/commands_contacts.py#L69-L82). This fix was introduced in [`7d05563` — `fix(companion): parse contact out_path_len as unsigned`](https://github.com/openhop-dev/openhop_core/commit/7d05563).
+
 ## What happens
 
 The path-length byte uses its top two bits to encode hash width and 0xFF for unknown. OpenHop decodes it with signed int8. The valid 3-byte-hash mode becomes negative and are later mistaken for unknown/invalid paths.

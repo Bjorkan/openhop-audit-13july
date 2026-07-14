@@ -13,6 +13,8 @@
 
 OpenHop infers location availability from `lat != 0.0 or lon != 0.0`. The valid coordinate at the intersection of the equator and prime meridian is therefore treated as absent. To fix it, use explicit availability/policy state rather than numeric truthiness. Test zero latitude, zero longitude, and (0, 0) with location sharing enabled.
 
+**Current status: ✅ Fully fixed.** Advert location inclusion is now controlled by advert_loc_policy rather than coordinate truthiness, so an explicitly shared (0, 0) coordinate sets HAS_LOCATION and is serialized. See [CompanionBase.advertise](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/base_send.py#L56-L75). This fix was introduced in [`d1d2e77` — `fix(advert): advertise location (0, 0) when sharing is enabled`](https://github.com/openhop-dev/openhop_core/commit/d1d2e77).
+
 ## What happens
 
 OpenHop infers location availability from `lat != 0.0 or lon != 0.0`. The valid coordinate at the intersection of the equator and prime meridian is therefore treated as absent.

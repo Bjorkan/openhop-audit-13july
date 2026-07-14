@@ -13,6 +13,8 @@
 
 The OpenHop stack can treat a one-byte destination-prefix match as local before any identity verifies the MAC. This can swallow packets intended for a remote node with the same prefix. Core must return an authenticated ownership result, and Repeater must stop forwarding only after that result confirms local handling.
 
+**Current status: ✅ Fully fixed.** Core handlers now return authenticated ownership only after MAC verification, and the router fans packets to local candidates and suppresses forwarding only when one reports authenticated handling. The collision-safe decision is visible in [PacketRouter's text path](https://github.com/openhop-dev/openhop_repeater/blob/fix/all-the-things/repeater/packet_router.py#L556-L568) and [CompanionBridge.process_received_packet](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/companion_bridge.py#L294-L331). The Core ownership result was introduced in [`b7d4827` — `fix(handlers): return HandlerResult from PATH and RESPONSE handlers`](https://github.com/openhop-dev/openhop_core/commit/b7d4827), and the Repeater collision-safe routing was introduced in [`8875177` — `fix(router): consume packets only on authenticated local handling`](https://github.com/openhop-dev/openhop_repeater/commit/8875177).
+
 ## What happens
 
 ### OpenHop Core

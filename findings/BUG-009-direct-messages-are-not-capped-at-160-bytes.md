@@ -13,6 +13,8 @@
 
 OpenHop can construct a direct text message longer than MeshCore's MAX_TEXT_LEN of 160 bytes. This produces behavior MeshCore's sendMessage API explicitly rejects. To fix it, validate the UTF-8 encoded byte length, not Python character count, against 160. Apply MeshCore's reduced limit when extended-attempt metadata is present, and propagate a send failure.
 
+**Current status: ✅ Fully fixed.** Direct-message construction now measures the UTF-8 byte sequence against the 160-byte MeshCore limit and applies the reduced 158-byte budget when extended-attempt metadata is needed. The checks are in [create_text_message_packet](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/protocol/packet_builder.py#L990-L1009). This fix was introduced in [`06b0a01` — `fix(text): reject direct messages longer than 160 bytes`](https://github.com/openhop-dev/openhop_core/commit/06b0a01).
+
 ## What happens
 
 OpenHop can construct a direct text message longer than MeshCore's MAX_TEXT_LEN of 160 bytes. This produces behavior MeshCore's sendMessage API explicitly rejects.

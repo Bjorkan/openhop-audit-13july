@@ -13,6 +13,8 @@
 
 Both `send_advert` and the room-server endpoint await `Dispatcher.send_packet` but ignore its Boolean result. They mark the packet as seen, log success, and return `True` even when dispatch returns `False`. To fix it, send adverts through `router.inject_packet` and RepeaterHandler. Check the result, mark packets seen only through the shared send lifecycle, and return and log failure when transmission fails.
 
+**Current status: ✅ Fully fixed.** Repeater and room-server adverts now use router.inject_packet when the router is available, check its Boolean result, and report failure without marking or logging a rejected transmission as successful. See [send_advert](https://github.com/openhop-dev/openhop_repeater/blob/fix/all-the-things/repeater/main.py#L1274-L1288) and [the room-server endpoint](https://github.com/openhop-dev/openhop_repeater/blob/fix/all-the-things/repeater/web/api_endpoints.py#L5980-L6000). This fix was introduced in [`e5d72ea` — `feat: update advert packet sending with error handling and add corresponding tests`](https://github.com/openhop-dev/openhop_repeater/commit/e5d72ea).
+
 ## What happens
 
 Both `send_advert` and the room-server endpoint await `Dispatcher.send_packet` but ignore its Boolean result. They mark the packet as seen, log success, and return `True` even when dispatch returns `False`. They also bypass RepeaterHandler duty-cycle accounting, statistics, and scheduling.

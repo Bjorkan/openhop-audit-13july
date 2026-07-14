@@ -13,6 +13,8 @@
 
 OpenHop does not consistently prove that every flag-controlled advert field is fully present before consuming it. A truncated field can shift subsequent interpretation or be silently accepted. To fix it, make advert parsing transactional: validate the complete length for each enabled field, reject on the first short segment, and only publish a Contact after the entire payload is valid. Add truncation tests at every byte boundary.
 
+**Current status: ✅ Fully fixed.** Advert parsing now computes and validates the complete flag-dependent minimum length before consuming optional fields, and a contact is published only after that parse succeeds. The transactional bounds check is implemented in [parse_advert_appdata](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/protocol/utils.py#L115-L148). This fix was introduced in [`b36bb12` — `fix(utils): improve error handling in parse_advert_payload and decode_appdata functions`](https://github.com/openhop-dev/openhop_core/commit/b36bb12).
+
 ## What happens
 
 OpenHop does not consistently prove that every flag-controlled advert field is fully present before consuming it. A truncated field can shift subsequent interpretation or be silently accepted.

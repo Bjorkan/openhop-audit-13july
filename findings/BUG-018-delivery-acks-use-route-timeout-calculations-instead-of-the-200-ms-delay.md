@@ -13,6 +13,8 @@
 
 OpenHop delays a received message ACK using its flood/direct timeout estimator and adds a separate multi-ACK stagger. MeshCore schedules the ordinary text response using TXT_ACK_DELAY, 200 ms, with its own sendAckTo behavior. To fix it, port the exact MeshCore ACK scheduling constants and sendAckTo rules. Keep sender timeout estimation separate from receiver response delay.
 
+**Current status: ✅ Fully fixed.** Receiver-side text ACKs now use the dedicated 200 ms TXT_ACK_DELAY and keep that response delay separate from sender timeout estimation and multi-ACK staggering. The constant and scheduling path are in [text.py](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/node/handlers/text.py#L13-L21) and [the ACK builder call](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/node/handlers/text.py#L304-L321). This fix was introduced in [`4bec71b` — `fix(text): schedule received-DM ACKs with the fixed TXT_ACK_DELAY`](https://github.com/openhop-dev/openhop_core/commit/4bec71b).
+
 ## What happens
 
 OpenHop delays a received message ACK using its flood/direct timeout estimator and adds a separate multi-ACK stagger. MeshCore schedules the ordinary text response using TXT_ACK_DELAY, 200 ms, with its own sendAckTo behavior.

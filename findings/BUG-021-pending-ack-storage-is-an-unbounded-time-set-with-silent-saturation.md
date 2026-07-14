@@ -13,6 +13,8 @@
 
 OpenHop stores up to 64 ACK values in a set with no timestamp or cyclic replacement. Once full, every new value is silently untracked, and values never expire unless matched or the entire connection resets. To fix it, mirror the eight-slot table and its lifecycle, or implement time-bounded FIFO semantics proven equivalent. Never silently prefer arbitrarily old ACKs over current sends.
 
+**Current status: 🟡 Partially fixed.** New ACKs no longer disappear when the table is full: an OrderedDict records send times and evicts the oldest entry. However, the capacity remains 64 rather than MeshCore's eight slots and unmatched entries have no time expiry, so the requested lifecycle parity is incomplete; see [MAX_PENDING_ACK_CRCS](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/constants.py#L129-L129) and [the FIFO update](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/base_send.py#L1032-L1055). The implemented bounded FIFO behavior was introduced in [`9882bf8` — `fix(companion): bound the pending-ACK table and evict the oldest entry`](https://github.com/openhop-dev/openhop_core/commit/9882bf8).
+
 ## What happens
 
 OpenHop stores up to 64 ACK values in a set with no timestamp or cyclic replacement. Once full, every new value is silently untracked, and values never expire unless matched or the entire connection resets.

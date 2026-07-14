@@ -13,6 +13,8 @@
 
 Advert limiting is an intentional optional anti-abuse policy, and the supplied example configuration disables the token bucket, penalty box, and adaptive limiter. To fix it, default every optional advert-limiter feature to disabled when configuration is absent. Preserve explicit operator opt-in and document that enabled anti-abuse policy intentionally diverges from MeshCore forwarding.
 
+**Current status: 🔴 Not fixed.** When advert-limiter configuration is absent, the token bucket and penalty box still default to enabled with restrictive fallback values. The forwarding-blocking defaults remain in [AdvertHelper initialization](https://github.com/openhop-dev/openhop_repeater/blob/fix/all-the-things/repeater/handler_helpers/advert.py#L77-L101).
+
 ## What happens
 
 Advert limiting is an intentional optional anti-abuse policy, and the supplied example configuration disables the token bucket, penalty box, and adaptive limiter. The implementation defaults each missing `enabled` field to `True`, so installations with older or partial configuration files silently activate a forwarding-blocking policy.

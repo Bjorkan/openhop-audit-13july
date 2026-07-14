@@ -13,6 +13,8 @@
 
 OpenHop rejects valid direct paths at the maximum encoded size before forwarding can remove the next hop. Core and Repeater must distinguish generic path validity from the extra capacity needed when appending a hop to a flood route.
 
+**Current status: 🟡 Partially fixed.** Flood forwarding now checks the additional capacity required before appending a hop, but generic validation still rejects len(path) == MAX_PATH_SIZE and Core still marks every maximum-hop packet do-not-retransmit before route-specific handling. A maximum-length direct path therefore remains blocked in [RepeaterHandler.validate_packet](https://github.com/openhop-dev/openhop_repeater/blob/fix/all-the-things/repeater/engine.py#L775-L789) and [Core Dispatcher](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/node/dispatcher.py#L418-L420). The implemented pre-append capacity check already existed at the reviewed Repeater branch base, [`5d75cb9`](https://github.com/openhop-dev/openhop_repeater/commit/5d75cb9ad409bd73520e0f7530f3ee7bdf7c783e), rather than being introduced by one of the new fix-branch commits.
+
 ## What happens
 
 ### OpenHop Core

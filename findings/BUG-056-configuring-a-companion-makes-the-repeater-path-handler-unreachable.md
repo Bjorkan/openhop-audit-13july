@@ -13,6 +13,8 @@
 
 The PATH branch uses `elif companion_bridges` before `elif path_helper`. As soon as at least one companion exists, a non-exact PATH is sent to companions and PathHelper is never called. To fix it, run local consumers as independent fan-out attempts instead of mutually exclusive `elif` branches. PathHelper and companion handlers should report authenticated matches; the router should then decide local consumption and forwarding once.
 
+**Current status: ✅ Fully fixed.** PATH dispatch now always invokes PathHelper first and then independently fans out to companion bridges, rather than using mutually exclusive elif branches. Ownership is combined from authenticated results before the engine decision in [packet_router.py](https://github.com/openhop-dev/openhop_repeater/blob/fix/all-the-things/repeater/packet_router.py#L570-L608). This fix was introduced in [`62ad742` — `fix(router): consume PATH and RESPONSE only after MAC authentication`](https://github.com/openhop-dev/openhop_repeater/commit/62ad742).
+
 ## What happens
 
 The PATH branch uses `elif companion_bridges` before `elif path_helper`. As soon as at least one companion exists, a non-exact PATH is sent to companions and PathHelper is never called.

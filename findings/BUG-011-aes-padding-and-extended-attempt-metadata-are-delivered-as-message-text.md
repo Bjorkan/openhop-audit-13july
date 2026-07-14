@@ -13,6 +13,8 @@
 
 OpenHop decodes every decrypted byte after the header as text without stopping at the first NUL. Ordinary AES zero padding is retained, and for a MeshCore message with attempt > 3 the hidden attempt byte after that NUL is also delivered to storage and callbacks. To fix it, for text types, split visible content at the first NUL. If a byte follows the delimiter in the extended-attempt position, expose it as retry metadata rather than content. Strip remaining block padding according to the MeshCore layout.
 
+**Current status: ✅ Fully fixed.** Received text is now treated as a C string: delivery stops at the first NUL, so AES padding and hidden extended-attempt metadata are excluded from stored and callback text. See [TextMessageHandler](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/node/handlers/text.py#L325-L333). This fix was introduced in [`15455ca` — `fix(text): stop delivered message text at the first NUL`](https://github.com/openhop-dev/openhop_core/commit/15455ca).
+
 ## What happens
 
 OpenHop decodes every decrypted byte after the header as text without stopping at the first NUL. Ordinary AES zero padding is retained, and for a MeshCore message with attempt > 3 the hidden attempt byte after that NUL is also delivered to storage and callbacks.

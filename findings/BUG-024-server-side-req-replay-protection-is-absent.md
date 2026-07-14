@@ -13,6 +13,8 @@
 
 ProtocolRequestHandler parses the request timestamp but does not compare it with per-client state before running the requested operation. A captured administrative request can be replayed. To fix it, persist a last accepted request timestamp per authenticated client and reproduce MeshCore's strict comparison/update order. The check must be inside the core handler, not optional application code.
 
+**Current status: ✅ Fully fixed.** ProtocolRequestHandler now keeps a per-authenticated-client watermark, rejects timestamps that are not strictly newer, and advances the watermark only after a valid handled request. The complete ordering is in [protocol_request.py](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/node/handlers/protocol_request.py#L155-L183). This fix was introduced in [`bfc0c0d` — `fix(req): reject replayed authenticated client requests`](https://github.com/openhop-dev/openhop_core/commit/bfc0c0d).
+
 ## What happens
 
 ProtocolRequestHandler parses the request timestamp but does not compare it with per-client state before running the requested operation. A captured administrative request can be replayed.

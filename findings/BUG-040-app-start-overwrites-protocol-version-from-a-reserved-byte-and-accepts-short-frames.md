@@ -13,6 +13,8 @@
 
 MeshCore negotiates app_target_ver only through DEVICE_QUERY. APP_START has seven reserved bytes and requires the full reserved prefix. OpenHop treats APP_START data[0] as a version and accepts even an empty/one-byte command. To fix it, leave the negotiated version untouched in APP_START and reject frames shorter than seven data bytes. Keep DEVICE_QUERY as the sole version-setting command.
 
+**Current status: ✅ Fully fixed.** APP_START now requires all seven reserved bytes and no longer changes the negotiated app target version; version negotiation remains confined to DEVICE_QUERY. The corrected handler is in [commands_device.py](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/frame_server/commands_device.py#L35-L44). This fix was introduced in [`42b93c8` — `fix(companion): stop treating APP_START prefix as a protocol version`](https://github.com/openhop-dev/openhop_core/commit/42b93c8).
+
 ## What happens
 
 MeshCore negotiates app_target_ver only through DEVICE_QUERY. APP_START has seven reserved bytes and requires the full reserved prefix. OpenHop treats APP_START data[0] as a version and accepts even an empty/one-byte command.

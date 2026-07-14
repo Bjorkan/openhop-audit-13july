@@ -13,6 +13,8 @@
 
 The first decrypted PATH byte stores hash width in bits 6-7 and hop count in bits 0-5. PathHelper uses the entire encoded byte directly as the slice length and truncation requirement. To fix it, use `PathUtils.is_valid_path_len` and `get_path_byte_len`, slice exactly that many bytes, and store encoded `path_len` separately from outbound path bytes. Test one-, two-, and three-byte hashes, including zero-valued path bytes.
 
+**Current status: ✅ Fully fixed.** PathHelper now validates the encoded path_len, derives the actual byte count with PathUtils.get_path_byte_len, copies exactly that many bytes, and stores the original encoded byte separately. The corrected parse is in [path.py](https://github.com/openhop-dev/openhop_repeater/blob/fix/all-the-things/repeater/handler_helpers/path.py#L81-L119). This fix was introduced in [`62ad742` — `fix(router): consume PATH and RESPONSE only after MAC authentication`](https://github.com/openhop-dev/openhop_repeater/commit/62ad742).
+
 ## What happens
 
 The first decrypted PATH byte stores hash width in bits 6-7 and hop count in bits 0-5. PathHelper uses the entire encoded byte directly as the slice length and truncation requirement.

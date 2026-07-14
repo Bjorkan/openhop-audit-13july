@@ -13,6 +13,8 @@
 
 MeshCore accepts the high-bit CONTROL subset only when the packet uses direct routing and has zero hops. OpenHop checks zero hops but never checks the route type, so flood or transport-flood control packets can trigger discovery handling. To fix it, require either direct route form exactly as MeshCore defines isRouteDirect, require the high bit, and release without flood forwarding. Add route-value fixtures 0 through 3.
 
+**Current status: ✅ Fully fixed.** CONTROL handling now requires packet.is_route_direct(), the CONTROL high bit, and an encoded zero-hop path before processing discovery data. The three gates are in [ControlHandler](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/node/handlers/control.py#L75-L94). This fix was introduced in [`09c55e7` — `fix(control): only accept discovery control packets on direct zero-hop routes`](https://github.com/openhop-dev/openhop_core/commit/09c55e7).
+
 ## What happens
 
 MeshCore accepts the high-bit CONTROL subset only when the packet uses direct routing and has zero hops. OpenHop checks zero hops but never checks the route type, so flood or transport-flood control packets can trigger discovery handling.

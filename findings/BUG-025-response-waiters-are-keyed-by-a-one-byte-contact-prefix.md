@@ -13,6 +13,8 @@
 
 OpenHop stores one response callback per source-hash byte. Two simultaneous contacts sharing their first public-key byte overwrite or consume each other's waiter, even though authenticated decryption can identify the full sender. To fix it, correlate by request tag and full matched public key. Support multiple outstanding requests per contact and keep the one-byte prefix only as a candidate-search hint.
 
+**Current status: 🟡 Partially fixed.** Response decryption now tries candidate contacts and can identify the full authenticated sender, but outstanding callbacks are still stored as one callback per one-byte contact_hash and delivered by src_hash alone. Concurrent colliding contacts can therefore still overwrite each other in [ProtocolResponseHandler](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/node/handlers/protocol_response.py#L159-L209). The supplied Core branch contains the implemented candidate-decryption portion at its reviewed head, [`403971c`](https://github.com/openhop-dev/openhop_core/commit/403971c6eb053ab3d6b71f0664097e95a403b407).
+
 ## What happens
 
 OpenHop stores one response callback per source-hash byte. Two simultaneous contacts sharing their first public-key byte overwrite or consume each other's waiter, even though authenticated decryption can identify the full sender.

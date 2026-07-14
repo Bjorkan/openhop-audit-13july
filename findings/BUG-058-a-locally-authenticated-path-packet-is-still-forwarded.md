@@ -13,6 +13,8 @@
 
 PathHelper updates a local ACL client's outbound path but explicitly leaves the packet retransmittable and returns `False`. PacketRouter therefore passes it to the forwarding engine. To fix it, return authenticated `handled=True` and mark do-not-retransmit only after successful MAC verification and complete parsing. The router should then stop the engine. Failed authentication must still permit forwarding as described in BUG-053.
 
+**Current status: ✅ Fully fixed.** After successful MAC verification and complete PATH parsing, PathHelper now marks the packet do-not-retransmit and returns True; the router treats that authenticated result as consumed and skips the engine. Failed authentication still returns False and remains forwardable in [path.py](https://github.com/openhop-dev/openhop_repeater/blob/fix/all-the-things/repeater/handler_helpers/path.py#L107-L140) and [packet_router.py](https://github.com/openhop-dev/openhop_repeater/blob/fix/all-the-things/repeater/packet_router.py#L604-L608). This fix was introduced in [`62ad742` — `fix(router): consume PATH and RESPONSE only after MAC authentication`](https://github.com/openhop-dev/openhop_repeater/commit/62ad742).
+
 ## What happens
 
 PathHelper updates a local ACL client's outbound path but explicitly leaves the packet retransmittable and returns `False`. PacketRouter therefore passes it to the forwarding engine.

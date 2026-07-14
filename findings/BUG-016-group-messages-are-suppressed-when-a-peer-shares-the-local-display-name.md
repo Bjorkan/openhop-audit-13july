@@ -13,6 +13,8 @@
 
 OpenHop decides that a group message is its own echo solely by parsing the sender display name and comparing it with the local name. Names are not unique or authenticated, so another node with the same name is hidden. To fix it, do not infer origin from the display-name prefix. If echo suppression is needed, track locally transmitted packet hashes with the correct MeshCore hash and expiry, then match the received packet identity.
 
+**Current status: 🔴 Not fixed.** The receive path still parses the sender display name and suppresses a packet when that name equals the local node name. No packet-hash-based echo tracking replaces this comparison, so a peer sharing the display name is still hidden in [GroupTextHandler._is_own_message](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/node/handlers/group_text.py#L187-L205).
+
 ## What happens
 
 OpenHop decides that a group message is its own echo solely by parsing the sender display name and comparing it with the local name. Names are not unique or authenticated, so another node with the same name is hidden.

@@ -13,6 +13,8 @@
 
 OpenHop stores MeshCore/companion coding rate as denominator 5–8, but two airtime implementations treat it as RadioLib's index 1–4. One clamps every 5–8 value to 4; another multiplies by cr + 4, yielding factors 9–12. To fix it, choose one public representation—5–8 to match the companion protocol—and convert to a 1–4 index only inside formulas that require it.
 
+**Current status: 🟡 Partially fixed.** Both airtime formulas now normalize coding rate correctly and no longer clamp every denominator or add four twice. However, the public timing API still deliberately accepts both 1-4 and 5-8 representations and the formula remains duplicated, so the requested single public 5-8 representation and shared estimator are not complete in [timing.py](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/timing.py#L36-L74) and [sx1262_wrapper.py](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/hardware/sx1262_wrapper.py#L1015-L1047). The implemented airtime-formula correction was introduced in [`dad3ff7` — `fix(timing): update coding rate handling for compatibility`](https://github.com/openhop-dev/openhop_core/commit/dad3ff7).
+
 ## What happens
 
 OpenHop stores MeshCore/companion coding rate as denominator 5–8, but two airtime implementations treat it as RadioLib's index 1–4. One clamps every 5–8 value to 4; another multiplies by cr + 4, yielding factors 9–12. A third simplified formula also omits standard header/CRC/preamble terms and uses fixed low-data-rate optimization.

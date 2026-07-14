@@ -13,6 +13,8 @@
 
 OpenHop permits 96 bytes of application data in an advert, while MeshCore reserves at most 32 bytes. An advert accepted or produced by OpenHop can therefore be rejected, truncated, or parsed differently by MeshCore nodes. To fix it, change the OpenHop limit to 32 bytes and reject longer inbound and outbound application data. Test lengths 32 and 33 on both encode and decode paths.
 
+**Current status: 🟡 Partially fixed.** OpenHop now uses the 32-byte protocol constant and rejects oversized outbound advert data, but the inbound handler still accepts an oversized signed advert and truncates its application data instead of rejecting it. The outbound half is fixed, while the required decode-path behavior remains visible in [AdvertHandler](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/node/handlers/advert.py#L77-L87). The implemented outbound portion was introduced in [`061a5da` — `fix(advert): cap advert application data at 32 bytes`](https://github.com/openhop-dev/openhop_core/commit/061a5da).
+
 ## What happens
 
 OpenHop permits 96 bytes of application data in an advert, while MeshCore reserves at most 32 bytes. An advert accepted or produced by OpenHop can therefore be rejected, truncated, or parsed differently by MeshCore nodes.

@@ -13,6 +13,8 @@
 
 OpenHop reports SentResult.is_flood when contact.out_path_len <= 0. In MeshCore, zero means a known zero-hop direct route; only OUT_PATH_UNKNOWN means flood. To fix it, set is_flood only for OUT_PATH_UNKNOWN, consistently using the same route predicate as the builder.
 
+**Current status: ✅ Fully fixed.** SentResult.is_flood now tests only for an unknown path, while out_path_len == 0 remains a known zero-hop direct route. The route selection is implemented in [the request send path](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/base_send.py#L590-L625). This fix was introduced in [`5328cd4` — `fix(companion): report zero-hop direct binary requests as direct`](https://github.com/openhop-dev/openhop_core/commit/5328cd4).
+
 ## What happens
 
 OpenHop reports SentResult.is_flood when contact.out_path_len <= 0. In MeshCore, zero means a known zero-hop direct route; only OUT_PATH_UNKNOWN means flood.

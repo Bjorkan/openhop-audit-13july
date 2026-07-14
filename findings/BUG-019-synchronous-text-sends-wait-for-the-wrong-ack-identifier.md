@@ -13,6 +13,8 @@
 
 The text builder correctly returns MeshCore's expected four-byte delivery-ACK value, but the companion path does not pass it into Dispatcher.send_packet. Dispatcher falls back to Packet.get_crc, a different value, so a real delivery ACK cannot satisfy the synchronous wait. To fix it, thread expected_crc=ack_crc through the node/bridge send APIs or stop using the generic packet wait for text. Add a test where the expected ACK and packet CRC differ and the MeshCore ACK completes the wait.
 
+**Current status: ✅ Fully fixed.** The expected delivery-ACK value returned by the text builder is now threaded through the bridge and dispatcher as expected_crc, instead of falling back to the packet CRC. The corrected send path is in [base_send.py](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/base_send.py#L350-L405). The supplied Core branch contains this corrected ACK-correlation behavior at its reviewed head, [`403971c`](https://github.com/openhop-dev/openhop_core/commit/403971c6eb053ab3d6b71f0664097e95a403b407).
+
 ## What happens
 
 The text builder correctly returns MeshCore's expected four-byte delivery-ACK value, but the companion path does not pass it into Dispatcher.send_packet. Dispatcher falls back to Packet.get_crc, a different value, so a real delivery ACK cannot satisfy the synchronous wait.

@@ -13,6 +13,8 @@
 
 The group-text flag byte uses its low two bits for an attempt value. OpenHop instead maps exact values 1 and 2 to CLI and signed-message subtypes. Valid retry traffic is therefore classified and sliced incorrectly. To fix it, validate the upper six bits, treat the low two bits as attempt, and never apply direct-message subtype layouts to GRP_TXT. Add fixtures for all four attempt values.
 
+**Current status: ✅ Fully fixed.** GRP_TXT parsing now validates that the upper six bits are zero and treats only the low two bits as the retry attempt, without applying direct-message CLI or signed-message subtype layouts. The corrected parser is in [group_text.py](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/node/handlers/group_text.py#L148-L173). This fix was introduced in [`4bb1fdf` — `fix(group-text): parse the group flag byte like the firmware`](https://github.com/openhop-dev/openhop_core/commit/4bb1fdf).
+
 ## What happens
 
 The group-text flag byte uses its low two bits for an attempt value. OpenHop instead maps exact values 1 and 2 to CLI and signed-message subtypes. Valid retry traffic is therefore classified and sliced incorrectly.

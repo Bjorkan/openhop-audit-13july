@@ -13,6 +13,8 @@
 
 OpenHop captures a ContactProxy, then changes the backing Contact to unknown path and replaces the cached proxy. The captured proxy retains the old out_path_len, so the packet builder can still select direct routing. To fix it, force the route on the packet explicitly or fetch the new proxy after updating. Avoid mutating shared contact state merely to select one send route; test a contact that starts with a known path.
 
+**Current status: ✅ Fully fixed.** Path discovery now explicitly requests route_type='flood' when constructing the request, so it no longer depends on a stale ContactProxy after changing contact path state. The corrected call is in [send_path_discovery](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/base_send.py#L300-L321). The supplied Core branch contains this corrected forced-flood behavior at its reviewed head, [`403971c`](https://github.com/openhop-dev/openhop_core/commit/403971c6eb053ab3d6b71f0664097e95a403b407).
+
 ## What happens
 
 OpenHop captures a ContactProxy, then changes the backing Contact to unknown path and replaces the cached proxy. The captured proxy retains the old out_path_len, so the packet builder can still select direct routing.

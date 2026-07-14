@@ -13,6 +13,8 @@
 
 For CMD_GET_CONTACTS with a since filter, OpenHop reports the number of frames it plans to emit. MeshCore reports the total contact-table count before applying the iterator filter. Clients that use MeshCore's count semantics observe a different value. To fix it, expose and send the same total table count as MeshCore, independent of since. Keep the end watermark and emitted frames filtered exactly as the firmware iterator does.
 
+**Current status: ✅ Fully fixed.** CMD_GET_CONTACTS now sends the total table count in CONTACTS_START while applying since only to emitted contact frames and the final watermark. The corrected count source is in [commands_contacts.py](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/frame_server/commands_contacts.py#L31-L49). This fix was introduced in [`2c24f2c` — `fix(companion): report total contact count in CONTACTS_START`](https://github.com/openhop-dev/openhop_core/commit/2c24f2c).
+
 ## What happens
 
 For CMD_GET_CONTACTS with a since filter, OpenHop reports the number of frames it plans to emit. MeshCore reports the total contact-table count before applying the iterator filter. Clients that use MeshCore's count semantics observe a different value.
