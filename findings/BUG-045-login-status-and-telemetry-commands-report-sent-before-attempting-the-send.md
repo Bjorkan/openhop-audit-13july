@@ -13,7 +13,7 @@
 
 OpenHop emits RESP_CODE_SENT with hardcoded route/tag/timeout before it looks up the target or knows whether packet construction/transmission succeeded. A later failure leaves the client with a false accepted-send result. To fix it, make bridge sends return SentResult, validate them first, and emit exactly one response: appropriate error or actual SENT metadata. Do not hardcode tag zero or route.
 
-**Current status: 🔴 Not fixed.** Login, status, and telemetry handlers still emit a hardcoded SENT response before awaiting their bridge operation, so lookup or transmission failure can follow a false acceptance. The ordering remains unchanged in [commands_messaging.py](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/frame_server/commands_messaging.py#L380-L450).
+**Current status: ✅ Fully fixed.** Login, status, and telemetry command handlers now call request-start methods that perform contact lookup, packet construction, and transmission before any SENT frame is emitted. SENT metadata is taken from the actual `SentResult`, and a failed start produces an error response without scheduling a false completion or timeout event; see [the request-start error mapping](https://github.com/openhop-dev/openhop_core/blob/9355d08e21423886a17979c0d8defb891f5d9d72/src/openhop_core/companion/frame_server/commands_messaging.py#L56-L65) and [the start-first command paths](https://github.com/openhop-dev/openhop_core/blob/9355d08e21423886a17979c0d8defb891f5d9d72/src/openhop_core/companion/frame_server/commands_messaging.py#L397-L500). The fix is present in the audited Core branch head [`9355d08`](https://github.com/openhop-dev/openhop_core/commit/9355d08e21423886a17979c0d8defb891f5d9d72).
 
 ## What happens
 

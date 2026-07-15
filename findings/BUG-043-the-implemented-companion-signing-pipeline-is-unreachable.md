@@ -13,7 +13,7 @@
 
 OpenHop implements sign_start, sign_data, and sign_finish in the bridge, and defines the command constants, but CompanionFrameServer does not register handlers for CMD_SIGN_START, CMD_SIGN_DATA, or CMD_SIGN_FINISH. To fix it, add frame handlers and registry entries with MeshCore's response layouts, session lifecycle, overflow errors, cleanup, and 8 KiB limit.
 
-**Current status: 🔴 Not fixed.** The bridge methods and command constants exist, but CompanionFrameServer still has no CMD_SIGN_START, CMD_SIGN_DATA, or CMD_SIGN_FINISH entries in its command registry and no frame handlers implementing their response lifecycle. The gap remains in [the registry](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/frame_server/server.py#L158-L210).
+**Current status: ✅ Fully fixed.** The frame server now dispatches SIGN_START, SIGN_DATA, and SIGN_FINISH to the existing signing implementation. The command handlers enforce session state, reject empty or oversized input, cap the buffer at 8 KiB, and return the resulting Ed25519 signature, with lifecycle and golden-vector tests included; see [the signing command handlers](https://github.com/openhop-dev/openhop_core/blob/9355d08e21423886a17979c0d8defb891f5d9d72/src/openhop_core/companion/frame_server/commands_device.py#L391-L430) and [their command registration](https://github.com/openhop-dev/openhop_core/blob/9355d08e21423886a17979c0d8defb891f5d9d72/src/openhop_core/companion/frame_server/server.py#L203-L205). The fix is present in the audited Core branch head [`9355d08`](https://github.com/openhop-dev/openhop_core/commit/9355d08e21423886a17979c0d8defb891f5d9d72).
 
 ## What happens
 

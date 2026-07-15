@@ -13,7 +13,7 @@
 
 OpenHop reports SentResult.is_flood when contact.out_path_len <= 0. In MeshCore, zero means a known zero-hop direct route; only OUT_PATH_UNKNOWN means flood. To fix it, set is_flood only for OUT_PATH_UNKNOWN, consistently using the same route predicate as the builder.
 
-**Current status: ✅ Fully fixed.** SentResult.is_flood now tests only for an unknown path, while out_path_len == 0 remains a known zero-hop direct route. The route selection is implemented in [the request send path](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/base_send.py#L590-L625). This fix was introduced in [`5328cd4` — `fix(companion): report zero-hop direct binary requests as direct`](https://github.com/openhop-dev/openhop_core/commit/5328cd4).
+**Current status: ✅ Fully fixed.** SentResult.is_flood now tests only for an unknown path, while out_path_len == 0 remains a known zero-hop direct route. The route selection is implemented in [the request send path](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/base_send.py#L590-L625). This fix was introduced in [`5328cd4` — `fix(companion): report zero-hop direct binary requests as direct`](https://github.com/openhop-dev/openhop_core/commit/5328cd4). Rechecked against the supplied branch heads—Core [`9355d08`](https://github.com/openhop-dev/openhop_core/commit/9355d08e21423886a17979c0d8defb891f5d9d72) and Repeater [`6aafa7f`](https://github.com/openhop-dev/openhop_repeater/commit/6aafa7fe991b5b3199b18149f84417f8522d94b2)—and no regression was found in this finding's previously assessed behavior.
 
 ## What happens
 

@@ -13,7 +13,7 @@
 
 Routing hashes are arbitrary bytes and can end in zero. OpenHop strips all trailing zero bytes from the fixed-width path field, shortening valid paths and making path_len disagree with the stored bytes. To fix it, calculate the exact path byte count from the unsigned encoded path_len and copy that many bytes verbatim. Ignore fixed-field padding only after the computed length.
 
-**Current status: 🔴 Not fixed.** The importer still slices a fixed-width path field and calls rstrip(b'\x00'), which removes valid zero-valued routing bytes instead of copying the exact byte count derived from encoded path_len. The defect remains in [commands_contacts.py](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/frame_server/commands_contacts.py#L83-L87).
+**Current status: ✅ Fully fixed.** Contact import now derives the exact route byte count from the encoded `out_path_len` and slices that number of bytes from the fixed-width field without stripping trailing zero values. Zero-valued hash bytes inside a valid route are therefore preserved; see [the contact-frame parser](https://github.com/openhop-dev/openhop_core/blob/9355d08e21423886a17979c0d8defb891f5d9d72/src/openhop_core/companion/frame_server/commands_contacts.py#L70-L84). The fix is present in the audited Core branch head [`9355d08`](https://github.com/openhop-dev/openhop_core/commit/9355d08e21423886a17979c0d8defb891f5d9d72).
 
 ## What happens
 

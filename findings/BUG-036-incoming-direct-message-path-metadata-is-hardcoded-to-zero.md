@@ -13,7 +13,7 @@
 
 OpenHop stores every incoming direct message with path_len=0, losing whether the packet arrived by flood and the learned inbound path. Companion frames consequently differ and cannot describe the route. To fix it, propagate route type and encoded packet path length from TextMessageHandler to the queued message. Encode flood path_len and direct 0xFF exactly as firmware does.
 
-**Current status: 🔴 Not fixed.** Incoming direct messages are still converted to QueuedMessage with path_len=0 regardless of their route or learned inbound path. The hardcoded field remains in [base_events._handle_new_message](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/base_events.py#L82-L113).
+**Current status: ✅ Fully fixed.** The text handler now publishes the packet's encoded flood path length and uses `0xFF` for a direct route, and the companion event/queue path carries that value into `QueuedMessage` and callback metadata instead of hardcoding zero. See [the receive event](https://github.com/openhop-dev/openhop_core/blob/9355d08e21423886a17979c0d8defb891f5d9d72/src/openhop_core/node/handlers/text.py#L365-L378) and [queue reconstruction](https://github.com/openhop-dev/openhop_core/blob/9355d08e21423886a17979c0d8defb891f5d9d72/src/openhop_core/companion/base_events.py#L109-L139). The fix is present in the audited Core branch head [`9355d08`](https://github.com/openhop-dev/openhop_core/commit/9355d08e21423886a17979c0d8defb891f5d9d72).
 
 ## What happens
 

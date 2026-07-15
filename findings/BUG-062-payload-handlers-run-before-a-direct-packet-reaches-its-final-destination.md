@@ -13,7 +13,7 @@
 
 PacketRouter runs advert, text, PATH, request, group, and companion handlers before `RepeaterHandler.direct_forward`. It does not first check whether a direct packet still has routing hops remaining. To fix it, place the MeshCore route-state machine before payload dispatch. For direct packets with `hop_count > 0`, run only TRACE, the CONTROL rule, early ACK, and multipart special cases; send all other packets directly to next-hop forwarding.
 
-**Current status: 🔴 Not fixed.** Payload-specific handlers still run from the start of _route_packet before the RepeaterHandler route state machine is invoked at the end. There is no early direct-hop gate that forwards non-final packets before advert, text, PATH, request, or group handling; see [the dispatch order](https://github.com/openhop-dev/openhop_repeater/blob/fix/all-the-things/repeater/packet_router.py#L451-L503) and [the late engine call](https://github.com/openhop-dev/openhop_repeater/blob/fix/all-the-things/repeater/packet_router.py#L728-L733).
+**Current status: ✅ Fully fixed.** PacketRouter now determines direct-intermediate state before normal payload dispatch. At an intermediate hop only TRACE, the high-bit CONTROL rule, and early ACK behavior run locally; all other payloads bypass advert, text, PATH, request, and group handlers and go directly to the forwarding engine. See [the early route gate](https://github.com/openhop-dev/openhop_repeater/blob/6aafa7fe991b5b3199b18149f84417f8522d94b2/repeater/packet_router.py#L460-L488). The fix is present in Repeater merge commit [`6aafa7f`](https://github.com/openhop-dev/openhop_repeater/commit/6aafa7fe991b5b3199b18149f84417f8522d94b2).
 
 ## What happens
 

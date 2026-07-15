@@ -13,7 +13,7 @@
 
 At startup, `main` reads `companion_load_messages` and pushes the rows into `bridge.message_queue` without deleting or marking the SQLite rows. To fix it, choose one authoritative queue. Recommended: do not preload payloads into memory; use SQLite as the FIFO source and use count or peek for waiting status. Alternatively, move rows atomically into memory and delete them in the same startup transaction.
 
-**Current status: 🔴 Not fixed.** Startup still loads every persisted companion message and pushes it into the in-memory queue without deleting or marking the SQLite row, leaving two authoritative copies that can both be delivered after restart. The duplicate preload remains in [_restore_companion_state](https://github.com/openhop-dev/openhop_repeater/blob/fix/all-the-things/repeater/main.py#L790-L837).
+**Current status: ✅ Fully fixed.** SQLite is now the authoritative persisted FIFO after restart. Startup validates counts and state but does not preload message payloads into the in-memory queue, and SYNC_NEXT atomically pops each persisted row exactly once when the in-memory queue is empty. See [the persistence-backed sync path](https://github.com/openhop-dev/openhop_repeater/blob/6aafa7fe991b5b3199b18149f84417f8522d94b2/repeater/companion/frame_server.py#L101-L137) and [the atomic SQLite pop](https://github.com/openhop-dev/openhop_repeater/blob/6aafa7fe991b5b3199b18149f84417f8522d94b2/repeater/data_acquisition/sqlite_handler.py#L3450-L3471). The fix is present in Repeater merge commit [`6aafa7f`](https://github.com/openhop-dev/openhop_repeater/commit/6aafa7fe991b5b3199b18149f84417f8522d94b2).
 
 ## What happens
 

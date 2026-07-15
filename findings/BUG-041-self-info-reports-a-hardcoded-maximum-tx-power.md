@@ -13,7 +13,7 @@
 
 Companion SELF_INFO always reports 22 dBm because Core hardcodes the value and Repeater never supplies the active radio limit. Core needs a read-only maximum-power capability, and Repeater must provide the validated limit of its active board and radio backend.
 
-**Current status: 🔴 Not fixed.** SELF_INFO still writes a literal 22 as the maximum TX-power capability, and no Repeater radio-backend capability is supplied to replace it. The hardcoded byte remains in [commands_device.py](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/companion/frame_server/commands_device.py#L46-L53).
+**Current status: ✅ Fully fixed.** SELF_INFO now obtains the maximum TX-power capability through the companion abstraction instead of writing a literal value. CompanionRadio reports its owned backend capability, while Repeater supplies the shared host radio's getter, attribute, configured limit, or the SX1262 limit as appropriate; see [the Repeater capability resolver](https://github.com/openhop-dev/openhop_repeater/blob/6aafa7fe991b5b3199b18149f84417f8522d94b2/repeater/main.py#L671-L709) and [CompanionBridge's host-backed capability](https://github.com/openhop-dev/openhop_core/blob/9355d08e21423886a17979c0d8defb891f5d9d72/src/openhop_core/companion/companion_bridge.py#L320-L371). The fix is present at Core head [`9355d08`](https://github.com/openhop-dev/openhop_core/commit/9355d08e21423886a17979c0d8defb891f5d9d72) and Repeater merge commit [`6aafa7f`](https://github.com/openhop-dev/openhop_repeater/commit/6aafa7fe991b5b3199b18149f84417f8522d94b2).
 
 ## What happens
 

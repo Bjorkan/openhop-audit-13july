@@ -13,7 +13,7 @@
 
 PATH packets carry a one-byte source hash. Multiple contacts can share it. OpenHop selects one contact and gives up if its HMAC fails, so ACKs from any other colliding contact are lost. To fix it, enumerate all contacts with the source prefix and attempt authenticated decryption for each, stopping only on a valid MAC. Use the matched full public key for subsequent state updates.
 
-**Current status: 🔴 Not fixed.** Encrypted PATH ACK handling still resolves a single contact with _find_contact_by_hash and attempts decryption only with that contact's secret. It does not enumerate all same-prefix contacts, so collisions remain unresolved in [AckHandler._try_decrypt_encrypted_ack](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/node/handlers/ack.py#L99-L141).
+**Current status: ✅ Fully fixed.** PATH ACK decryption now enumerates every contact sharing the one-byte source prefix and stops only after a candidate passes MAC verification. Both the general ACK handler and CompanionBridge use the matched contact's full key for the decrypted PATH/ACK state, so one colliding contact can no longer hide another; see [AckHandler](https://github.com/openhop-dev/openhop_core/blob/9355d08e21423886a17979c0d8defb891f5d9d72/src/openhop_core/node/handlers/ack.py#L77-L126) and [the bridge ACK path](https://github.com/openhop-dev/openhop_core/blob/9355d08e21423886a17979c0d8defb891f5d9d72/src/openhop_core/companion/companion_bridge.py#L87-L126). The fix is present in the audited Core branch head [`9355d08`](https://github.com/openhop-dev/openhop_core/commit/9355d08e21423886a17979c0d8defb891f5d9d72).
 
 ## What happens
 

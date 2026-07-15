@@ -13,7 +13,7 @@
 
 MeshCore deliberately delays processing of flood packets based on packet score and airtime. This helps better receptions win and suppresses redundant repeats. OpenHop dispatches every first-seen flood immediately. To fix it, port packet scoring and the delayed inbound queue, including threshold, cap, cancellation/deduplication interaction, and monotonic timing. Validate ordering with two copies of one flood at different scores.
 
-**Current status: 🔴 Not fixed.** Core still parses and dispatches the first flood copy immediately after deduplication; there is no reception-score comparison, delayed inbound queue, or cancellation when a better duplicate arrives. The unchanged immediate receive flow is visible in [Dispatcher](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/node/dispatcher.py#L408-L440).
+**Current status: 🔴 Not fixed.** Core still parses and dispatches the first flood copy immediately after deduplication; there is no reception-score comparison, delayed inbound queue, or cancellation when a better duplicate arrives. The unchanged immediate receive flow is visible in [Dispatcher](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/node/dispatcher.py#L408-L440). Rechecked against the supplied branch heads—Core [`9355d08`](https://github.com/openhop-dev/openhop_core/commit/9355d08e21423886a17979c0d8defb891f5d9d72) and Repeater [`6aafa7f`](https://github.com/openhop-dev/openhop_repeater/commit/6aafa7fe991b5b3199b18149f84417f8522d94b2)—and no regression was found in this finding's previously assessed behavior.
 
 ## What happens
 
