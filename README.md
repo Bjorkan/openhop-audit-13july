@@ -19,13 +19,13 @@ Each confirmed defect has one Markdown file. A report includes both Core and Rep
 
 | Bug | Severity | Area | Components | Summary |
 |---|---|---|---|---|
-| 🟡 [BUG-001](findings/BUG-001-advert-application-data-exceeds-the-meshcore-limit.md) | Medium | Packet format | Core | Advert application data exceeds the MeshCore limit |
+| ✅ [BUG-001](findings/BUG-001-advert-application-data-exceeds-the-meshcore-limit.md) | Medium | Packet format | Core | Advert application data exceeds the MeshCore limit |
 | 🟡 [BUG-002](findings/BUG-002-packet-payload-limit-is-larger-than-meshcore-s-wire-limit.md) | Medium | Packet format | Core | Packet payload limit is larger than MeshCore's wire limit |
 | ✅ [BUG-003](findings/BUG-003-malformed-advert-optional-fields-are-accepted-and-misaligned.md) | Medium | Advert parsing | Core | Malformed advert optional fields are accepted and misaligned |
 | ✅ [BUG-004](findings/BUG-004-invalid-utf-8-advert-names-discard-otherwise-valid-adverts.md) | Low | Advert parsing | Core | Invalid UTF-8 advert names discard otherwise valid adverts |
 | ✅ [BUG-005](findings/BUG-005-advert-names-are-trimmed-during-parsing.md) | Low | Advert name parsing | Core | Advert names are trimmed during parsing |
 | ✅ [BUG-006](findings/BUG-006-empty-path-returns-omit-meshcore-s-random-uniqueness-filler.md) | Medium | Encrypted packet construction | Core | Empty PATH returns omit MeshCore's random uniqueness filler |
-| 🟡 [BUG-007](findings/BUG-007-group-binary-data-is-encrypted-with-the-wrong-aes-key.md) | High | Group encryption | Core | Group binary data is encrypted with the wrong AES key |
+| ✅ [BUG-007](findings/BUG-007-group-binary-data-is-encrypted-with-the-wrong-aes-key.md) | High | Group encryption | Core | Group binary data is encrypted with the wrong AES key |
 | ✅ [BUG-008](findings/BUG-008-group-binary-data-over-165-bytes-is-accepted.md) | Low | Group packet construction | Core | Group binary data over 165 bytes is accepted |
 | ✅ [BUG-009](findings/BUG-009-direct-messages-are-not-capped-at-160-bytes.md) | Medium | Text packet construction | Core | Direct messages are not capped at 160 bytes |
 | ✅ [BUG-010](findings/BUG-010-text-attempt-numbers-above-three-are-discarded.md) | Medium | Text retry encoding | Core | Text attempt numbers above three are discarded |
@@ -39,7 +39,7 @@ Each confirmed defect has one Markdown file. A report includes both Core and Rep
 | ✅ [BUG-018](findings/BUG-018-delivery-acks-use-route-timeout-calculations-instead-of-the-200-ms-delay.md) | Medium | ACK scheduling | Core | Delivery ACKs use route timeout calculations instead of the 200 ms delay |
 | ✅ [BUG-019](findings/BUG-019-synchronous-text-sends-wait-for-the-wrong-ack-identifier.md) | High | ACK correlation | Core | Synchronous text sends wait for the wrong ACK identifier |
 | ✅ [BUG-020](findings/BUG-020-path-ack-decryption-tries-only-one-colliding-contact.md) | Medium | PATH and ACK parsing | Core | PATH ACK decryption tries only one colliding contact |
-| 🟡 [BUG-021](findings/BUG-021-pending-ack-storage-is-an-unbounded-time-set-with-silent-saturation.md) | Low | ACK state | Core | Pending ACK storage is an unbounded-time set with silent saturation |
+| ✅ [BUG-021](findings/BUG-021-pending-ack-storage-is-an-unbounded-time-set-with-silent-saturation.md) | Low | ACK state | Core | Pending ACK storage is an unbounded-time set with silent saturation |
 | 🟡 [BUG-022](findings/BUG-022-multipart-packets-and-routed-acks-lack-their-special-forwarding-paths.md) | High | Mesh routing | Repeater | Multipart packets and routed ACKs lack their special forwarding paths |
 | 🔴 [BUG-023](findings/BUG-023-flood-packets-bypass-meshcore-s-reception-quality-delay.md) | Medium | Radio receive scheduling | Core | Flood packets bypass MeshCore's reception-quality delay |
 | ✅ [BUG-024](findings/BUG-024-server-side-req-replay-protection-is-absent.md) | High | Server-side REQ security | Core | Server-side REQ replay protection is absent |
