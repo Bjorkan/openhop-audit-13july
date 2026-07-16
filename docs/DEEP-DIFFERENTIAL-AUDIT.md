@@ -60,7 +60,7 @@ RightUp previously explained that neighbour-link scoring was intentionally obser
 - **BUG-099:** multi-byte path-discovery routes are exposed to companion apps with corrupt hop-count/hash-width metadata.
 - **BUG-100:** multiple room identities can enter overlapping push/ACK workflows because the shared limiter never holds its lock across transmission.
 
-## Tests
+## Earlier test baseline
 
 - OpenHop Core: `1110 passed`.
 - OpenHop Repeater: `1136 passed, 20 subtests passed`.

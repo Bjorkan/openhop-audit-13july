@@ -44,7 +44,6 @@ The Repeater suite emits seven warnings because synchronous neighbour-link tests
 
 Passing tests confirm internal consistency but do not by themselves prove wire parity; active reports remain where direct source comparison still establishes a mismatch.
 
-
 ## Deeper logic pass
 
 - Source snapshots remained Core `41b6201ea2e3cb9b8468b0eb80c9e22fdad4a6c8` and Repeater `dd6dfce9e89fab76967d91e202d8e47217c30474`.
@@ -52,7 +51,6 @@ Passing tests confirm internal consistency but do not by themselves prove wire p
 - `compileall` passed for both Python packages.
 - No previous active report was closed and no archived correction regressed.
 - The earlier full-suite totals remain valid baseline evidence for these same ZIP snapshots, but were not rerun in the current environment. Optional dependencies including PyCryptodome/PyNaCl/CherryPy/serial/radio packages were unavailable and package installation could not complete, so this pass does not present inherited test totals as fresh executions.
-
 
 ## Continued deep review
 
@@ -62,7 +60,6 @@ Passing tests confirm internal consistency but do not by themselves prove wire p
 - Core and Repeater compileall remained successful.
 - No prior status changed and no archived correction regressed in the reviewed paths.
 - Full pytest suites were not freshly rerun because optional crypto, web, serial and radio dependencies are unavailable; inherited suite totals remain clearly labelled as baseline results.
-
 
 ## Latest commits and deeper protocol-lifecycle pass
 

@@ -17,11 +17,11 @@ OpenHop rejects valid direct paths at the maximum encoded size before forwarding
 
 ## What happens
 
-### OpenHop Core
+### OpenHop Core impact
 
 Dispatcher marks every path at encoded capacity as do-not-retransmit before route-specific processing, even when direct forwarding will remove the first hop and shorten the path.
 
-### OpenHop Repeater
+### OpenHop Repeater impact
 
 The repeater generic path validator rejects `len(path) >= MAX_PATH_SIZE`, which rejects an exactly 64-byte path even when its encoding is valid and direct forwarding will remove the next hop.
 
@@ -37,21 +37,21 @@ An exactly maximum-size direct path remains valid because forwarding shortens it
 
 ## How the OpenHop stack handles it
 
-### OpenHop Core
+### Current OpenHop Core behavior
 
 Paths at 63 one-byte hops, 32 two-byte hops, or 21 three-byte hops are blocked before the direct branch can shorten them.
 
-### OpenHop Repeater
+### Current OpenHop Repeater behavior
 
 A valid 32-hop two-byte path is rejected before `direct_forward` can remove its first hop.
 
 ## What needs to change
 
-### OpenHop Core
+### Required OpenHop Core changes
 
 Remove route-independent maximum-hop rejection from Dispatcher. Enforce capacity at the operation that appends to a flood path, while allowing direct forwarding to remove the first encoded hop. Add maximum and one-below-maximum fixtures for all hash widths.
 
-### OpenHop Repeater
+### Required OpenHop Repeater changes
 
 Reject only paths greater than `MAX_PATH_SIZE` in generic validation. Keep a separate pre-append capacity check for flood forwarding. Test exactly 64 bytes, one byte below, and one byte above, including a valid two-byte hash encoding.
 

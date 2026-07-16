@@ -21,11 +21,11 @@ For CMD_GET_CONTACTS with a since filter, OpenHop reports the number of frames i
 
 ## How official MeshCore handles it
 
-The companion writes RESP_CODE_CONTACTS_START with getNumContacts(), then starts an iterator that applies _iter_filter_since and skips transient records while emitting.
+The companion writes `RESP_CODE_CONTACTS_START` with `getNumContacts()`, then starts an iterator that applies `_iter_filter_since` and skips transient records while emitting.
 
 ## How the OpenHop stack handles it
 
-**OpenHop Core:** _cmd_get_contacts first calls get_contacts(since), then writes len(contacts), which is already filtered and excludes transient contacts.
+**OpenHop Core:** `_cmd_get_contacts` first calls `get_contacts(since)`, then writes `len(contacts)`, which is already filtered and excludes transient contacts.
 
 ## What needs to change
 

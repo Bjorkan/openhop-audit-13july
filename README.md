@@ -89,7 +89,6 @@ The [file review matrix](docs/FILE-REVIEW-MATRIX.md) records the reviewed source
 | 🔴 [BUG-098](findings/BUG-098-protocol-level-13-is-reported-while-reboot-device-pin-and-factory-reset-commands-are-absent.md) | Medium | Companion command coverage | OpenHop Core | Protocol level 13 is reported while reboot, device-PIN and factory-reset commands are absent |
 | 🔴 [BUG-099](findings/BUG-099-path-discovery-pushes-replace-encoded-path-lengths-with-raw-byte-counts.md) | High | Companion path discovery | OpenHop Core | Path-discovery pushes replace encoded path lengths with raw byte counts |
 | 🔴 [BUG-100](findings/BUG-100-the-global-room-server-rate-limiter-releases-its-lock-before-transmission-begins.md) | High | Room server scheduling | OpenHop Repeater | The global room-server rate limiter releases its lock before transmission begins |
-
 | 🔴 [BUG-101](findings/BUG-101-standalone-meshnode-registers-group-text-but-not-group-data.md) | Medium | Default packet dispatch | OpenHop Core | Standalone MeshNode registers group text but not group data |
 | 🔴 [BUG-102](findings/BUG-102-repeater-pushes-non-zero-hop-and-non-discovery-control-packets-to-companions.md) | Medium | CONTROL delivery | OpenHop Repeater | Repeater pushes non-zero-hop and non-discovery CONTROL packets to companions |
 | 🔴 [BUG-103](findings/BUG-103-the-command-response-waiter-captures-unrelated-or-wrong-sender-messages.md) | High | Companion CLI correlation | OpenHop Core | The command-response waiter captures unrelated or wrong-sender messages |
@@ -108,7 +107,6 @@ The [file review matrix](docs/FILE-REVIEW-MATRIX.md) records the reviewed source
 | 🔴 [BUG-116](findings/BUG-116-room-server-posts-lose-trailing-whitespace.md) | Low | Room message fidelity | OpenHop Repeater | Room-server posts lose trailing whitespace |
 | 🔴 [BUG-117](findings/BUG-117-cli-replies-do-not-use-a-unique-timestamp-distinct-from-the-request.md) | Medium | CLI reply serialization | OpenHop Repeater | CLI replies do not use a unique timestamp distinct from the request |
 | 🔴 [BUG-118](findings/BUG-118-cli-command-retries-can-execute-administrative-actions-again.md) | High | CLI replay protection | OpenHop Core, OpenHop Repeater | CLI command retries can execute administrative actions again |
-
 | 🔴 [BUG-119](findings/BUG-119-pending-ack-entries-are-created-before-a-text-packet-is-successfully-sent.md) | High | Companion ACK lifecycle | OpenHop Core | Pending ACK entries are created before a text packet is successfully sent |
 | 🔴 [BUG-120](findings/BUG-120-successful-server-logins-do-not-start-keep-alive-connections.md) | High | Server connection lifecycle | OpenHop Core | Successful server logins do not start keep-alive connections |
 | 🔴 [BUG-121](findings/BUG-121-local-identities-can-use-meshcore-reserved-00-and-ff-prefixes.md) | High | Identity generation and validation | OpenHop Core, OpenHop Repeater | Local identities can use MeshCore-reserved 0x00 and 0xFF prefixes |

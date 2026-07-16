@@ -19,13 +19,11 @@ This audit does not require a host implementation to reproduce embedded-memory c
 
 A difference becomes a finding when it changes bytes on the wire, accepts or rejects traffic differently, changes routing/ACK/security semantics, breaks a documented companion/CLI contract, loses protocol data, introduces unbounded attacker-controlled state, or causes externally visible identity/telemetry to disagree with MeshCore. A consciously added observational subsystem is not a defect when it does not alter the default interoperable path.
 
-
 ## Rechecked non-findings in the deeper logic pass
 
 - ACL capacity: rejecting or evicting at a different bounded host-side capacity was not filed by itself. BUG-111 concerns persistence, not table size.
 - Neighbour-link observation: the additional report and scoring state remain intentional and do not reopen BUG-023.
 - Host-side post rate limits: the extra limit is not inherently a defect. BUG-114 is specifically about sending a protocol ACK before knowing whether that host-side policy accepted the post.
-
 
 ## Latest rechecked non-finding
 

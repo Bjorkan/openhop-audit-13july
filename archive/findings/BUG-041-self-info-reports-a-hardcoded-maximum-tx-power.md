@@ -17,11 +17,11 @@ Companion SELF_INFO always reports 22 dBm because Core hardcodes the value and R
 
 ## What happens
 
-### OpenHop Core
+### OpenHop Core impact
 
 The core frame server encodes the maximum TX-power byte as the literal value 22 instead of obtaining it from the active device integration.
 
-### OpenHop Repeater
+### OpenHop Repeater impact
 
 The repeater does not provide backend-specific maximum TX power to the companion frame server, so clients receive the core fallback rather than the actual hardware limit.
 
@@ -37,21 +37,21 @@ Clients receive the maximum supported power of the active board/radio combinatio
 
 ## How the OpenHop stack handles it
 
-### OpenHop Core
+### Current OpenHop Core behavior
 
 The generic companion frame server has no read-only provider for maximum TX power, so every backend reports the same value.
 
-### OpenHop Repeater
+### Current OpenHop Repeater behavior
 
 CompanionFrameServer construction receives statistics and control hooks but no maximum-power capability sourced from the selected radio adapter or board configuration.
 
 ## What needs to change
 
-### OpenHop Core
+### Required OpenHop Core changes
 
 Add an explicit read-only capability method or constructor callback for maximum TX power and use it in SELF_INFO. Validate and clamp the returned protocol value, provide a safe generic default only when no hardware integration exists, and keep this API independent from radio-mutation commands.
 
-### OpenHop Repeater
+### Required OpenHop Repeater changes
 
 Resolve maximum TX power from the active radio backend or validated board configuration and supply it through the core read-only capability API. Do not derive it from per-companion preferences. Add mocked backend tests for at least two different maximum values and an unavailable-capability fallback.
 

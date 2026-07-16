@@ -17,11 +17,11 @@ Both OpenHop offline queues can delete an existing direct message when they reac
 
 ## What happens
 
-### OpenHop Core
+### OpenHop Core impact
 
 The core MessageQueue uses `deque(maxlen=...)`, which silently drops the oldest entry at capacity without considering whether it is a protected direct message or lower-priority channel traffic.
 
-### OpenHop Repeater
+### OpenHop Repeater impact
 
 The SQLite retention query keeps only the newest rows and blindly deletes older overflow, including direct messages. Its behavior therefore disagrees with the protected eviction policy required by the core queue.
 
@@ -37,21 +37,21 @@ Capacity pressure evicts the oldest channel message first and never silently sac
 
 ## How the OpenHop stack handles it
 
-### OpenHop Core
+### Current OpenHop Core behavior
 
 Every push returns success and may invisibly evict the oldest queue element.
 
-### OpenHop Repeater
+### Current OpenHop Repeater behavior
 
 `companion_push_message` inserts first and then deletes every row outside a newest-N subquery, without inspecting `is_channel`.
 
 ## What needs to change
 
-### OpenHop Core
+### Required OpenHop Core changes
 
 Remove implicit `deque(maxlen)` eviction. Implement explicit insertion that removes the oldest channel message first and returns failure when no evictable channel message exists. Preserve configurable capacity and make callers observe the boolean result. Test channel and direct-message combinations at and above capacity.
 
-### OpenHop Repeater
+### Required OpenHop Repeater changes
 
 Perform capacity handling atomically in the insertion transaction. When full, delete the oldest channel row; if none exists, reject the new row and return a visible failure. Ensure the frame-server persistence hook handles rejected insertion without falsely treating the message as safely persisted. Add parity tests against the core queue policy.
 

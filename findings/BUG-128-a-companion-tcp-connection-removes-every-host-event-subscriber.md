@@ -25,7 +25,7 @@ Official firmware owns its serial interface directly and does not have a shared 
 
 ## How the OpenHop stack handles it
 
-clear_push_callbacks() empties every list in _push_callbacks. _setup_push_callbacks() calls it on every connection, and _handle_client() runs that setup after accepting the socket. A focused check registered an application callback and confirmed that it disappeared.
+`clear_push_callbacks()` empties every list in `_push_callbacks`. `_setup_push_callbacks()` calls it on every connection, and `_handle_client()` runs that setup after accepting the socket. A focused check registered an application callback and confirmed that it disappeared.
 
 ## What needs to change
 

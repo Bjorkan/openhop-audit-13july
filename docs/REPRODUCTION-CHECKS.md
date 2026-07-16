@@ -47,7 +47,6 @@ Passing existing tests does not invalidate these checks. The findings cover comp
 
 The full transition checks for BUG-002, BUG-023, BUG-048 and BUG-060 are covered by the newly added project tests and the 259/440 changed-path test runs summarized in [NEW-COMMITS-REVIEW.md](NEW-COMMITS-REVIEW.md).
 
-
 ## Deeper logic recheck: BUG-101–BUG-118
 
 The current pass used focused source assertions because several optional radio/web dependencies were unavailable in the execution environment. These checks do not replace the previously completed full suites; they isolate the exact parity predicates behind the new reports.
@@ -75,7 +74,6 @@ The current pass used focused source assertions because several optional radio/w
 
 The complete output is stored in [`DEEPER-LOGIC-CHECK-OUTPUT.txt`](DEEPER-LOGIC-CHECK-OUTPUT.txt). Core and Repeater bytecode compilation also passed.
 
-
 ## Continued deep review: BUG-119–BUG-124
 
 | Finding | Focused parity predicate | Result |
@@ -88,7 +86,6 @@ The complete output is stored in [`DEEPER-LOGIC-CHECK-OUTPUT.txt`](DEEPER-LOGIC-
 | BUG-124 | KISS fallback airtime retains a non-firmware 50 ms floor | PASS |
 
 The complete 16-assertion output is stored in [`CONTINUED-DEEP-CHECK-OUTPUT.txt`](CONTINUED-DEEP-CHECK-OUTPUT.txt). These checks isolate the cited source behavior and do not replace physical-radio interoperability testing.
-
 
 ## Latest-snapshot checks for BUG-125–BUG-130
 

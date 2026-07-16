@@ -17,11 +17,11 @@ OpenHop exports contacts through a custom unsigned record instead of the origina
 
 ## What happens
 
-### OpenHop Core
+### OpenHop Core impact
 
 The core companion API exports contacts through a custom unsigned 73-byte record and imports that record directly into contact storage. This loses the original ADVERT timestamp, flags, signature, application data, and authenticity.
 
-### OpenHop Repeater
+### OpenHop Repeater impact
 
 The repeater persistence adapter omits `last_advert_packet` when converting contacts to SQLite records. Even after core exports the original signed ADVERT, a daemon restart would discard that packet and make the contact non-exportable in the compatible format.
 
@@ -37,21 +37,21 @@ Persistent contact state retains the signed advert material needed for later con
 
 ## How the OpenHop stack handles it
 
-### OpenHop Core
+### Current OpenHop Core behavior
 
 The Contact model can carry `last_advert_packet`, but `export_contact` still calls `encode_exported_contact`, and `import_contact` still trusts `decode_exported_contact` instead of verifying an ADVERT packet.
 
-### OpenHop Repeater
+### Current OpenHop Repeater behavior
 
 `CompanionFrameServer._contact_to_dict` does not include `last_advert_packet`, and the SQLite contact schema/save/load path has no corresponding BLOB field.
 
 ## What needs to change
 
-### OpenHop Core
+### Required OpenHop Core changes
 
 Make the verified raw ADVERT packet the canonical peer-contact export. Return it byte-for-byte for peer exports; parse and authenticate imported data as an ADVERT; pass successful imports through the normal advert/contact update path; reject the custom 73-byte format. Ensure the contact serialization contract exposes `last_advert_packet` so repository-specific persistence can store it.
 
-### OpenHop Repeater
+### Required OpenHop Repeater changes
 
 Add a migration-safe nullable BLOB column for the raw ADVERT packet. Include it in single-contact upsert, bulk save, load, and conversion back into the core Contact model. Existing rows may remain null until a new verified advert is received. Add a restart test that receives an advert, persists it, reloads it, and exports exactly the same bytes.
 

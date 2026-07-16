@@ -25,7 +25,7 @@ composeMsgPacket calculates expected_ack from timestamp, flags, text, and sender
 
 ## How the OpenHop stack handles it
 
-**OpenHop Core:** send_text_message records ack_crc in a separate pending set, then calls _send_packet with only wait_for_ack=True. The dispatcher consequently waits on packet.get_crc().
+**OpenHop Core:** `send_text_message` records `ack_crc` in a separate pending set, then calls `_send_packet` with only `wait_for_ack=True`. The dispatcher consequently waits on `packet.get_crc()`.
 
 ## What needs to change
 

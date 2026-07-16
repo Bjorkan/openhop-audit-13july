@@ -17,11 +17,11 @@ The OpenHop stack can treat a one-byte destination-prefix match as local before 
 
 ## What happens
 
-### OpenHop Core
+### OpenHop Core impact
 
 Core handler and CompanionBridge call paths do not consistently distinguish three outcomes: not a local candidate, local candidate but authentication/decryption failed, and successfully authenticated local handling. The repeater therefore cannot safely decide whether it may stop forwarding a prefix-matching packet.
 
-### OpenHop Repeater
+### OpenHop Repeater impact
 
 Repeater helper and PacketRouter branches treat a one-byte destination-prefix match as local before MAC verification. They can mark the packet processed or do-not-retransmit even when no local identity authenticates it.
 
@@ -37,21 +37,21 @@ A destination prefix selects candidates; a packet is consumed locally only after
 
 ## How the OpenHop stack handles it
 
-### OpenHop Core
+### Current OpenHop Core behavior
 
 Several helpers expose `None`, a missing response packet, or callback side effects rather than a structured authenticated/handled result.
 
-### OpenHop Repeater
+### Current OpenHop Repeater behavior
 
 A legitimate packet for a remote node sharing the first public-key byte, or a forged packet, can be swallowed by the repeater.
 
 ## What needs to change
 
-### OpenHop Core
+### Required OpenHop Core changes
 
 Define a stable result type that separates candidate match, authentication success, payload handling, and optional response packet. Update login, text, protocol-request, and CompanionBridge receive paths to return it without marking failed authentication as handled. Add collision fixtures where a prefix matches but the MAC belongs to another node.
 
-### OpenHop Repeater
+### Required OpenHop Repeater changes
 
 Consume the structured core ownership result. Try all relevant local candidates and stop forwarding only when one reports authenticated handling. Leave unauthenticated prefix matches available to the forwarding engine. Test forged traffic and a real remote destination that collides with a local one-byte prefix.
 

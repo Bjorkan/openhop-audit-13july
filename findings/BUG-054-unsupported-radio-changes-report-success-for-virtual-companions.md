@@ -17,11 +17,11 @@ A virtual companion can receive success for radio changes that only alter its st
 
 ## What happens
 
-### OpenHop Core
+### OpenHop Core impact
 
 The generic command handlers always call preference-mutating setters and then emit OK, even when an integration does not own or permit mutation of the physical radio. Setter return values are also ignored.
 
-### OpenHop Repeater
+### OpenHop Repeater impact
 
 Repeater-hosted virtual companions inherit preference-only radio setters. Commands can therefore return success and store contradictory per-companion values while the shared physical repeater radio remains unchanged.
 
@@ -37,21 +37,21 @@ A dedicated companion radio may apply the change, but a virtual identity sharing
 
 ## How the OpenHop stack handles it
 
-### OpenHop Core
+### Current OpenHop Core behavior
 
 `_cmd_set_radio_params` and `_cmd_set_tx_power` can report success after changing only NodePrefs or after a hardware setter reports failure.
 
-### OpenHop Repeater
+### Current OpenHop Repeater behavior
 
 RepeaterCompanionBridge does not override or deny the mutation capability, so the generic core setters change only persisted NodePrefs.
 
 ## What needs to change
 
-### OpenHop Core
+### Required OpenHop Core changes
 
 Introduce explicit capability-gated mutation methods whose result distinguishes applied, rejected/unsupported, and invalid/failed. Command handlers must emit OK only after an applied result and must not pre-mutate preferences. Preserve support for dedicated companion-radio integrations that genuinely own their radio.
 
-### OpenHop Repeater
+### Required OpenHop Repeater changes
 
 Implement the repeater side of the core capability API as read-only: reject SET_RADIO_PARAMS and SET_RADIO_TX_POWER with unsupported, do not mutate per-companion preferences, and leave administrative radio changes to a separately authenticated repeater-owned API.
 

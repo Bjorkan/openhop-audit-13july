@@ -336,8 +336,6 @@ This matrix records every source file in the three audit inventories. It was rec
 | `src/helpers/ui/buzzer.cpp` | Official reference reviewed; no additional OpenHop deviation identified from this file. | — |
 | `src/helpers/ui/buzzer.h` | Official reference reviewed; no additional OpenHop deviation identified from this file. | — |
 
-
-
 ## Deeper logic pass addendum
 
 The following cross-file paths received an additional state-machine review. This supplements, rather than replaces, the complete inventory above.
@@ -365,7 +363,6 @@ The following cross-file paths received an additional state-machine review. This
 | MeshCore | `examples/simple_repeater/MyMesh.cpp` | BUG-115, BUG-117, BUG-118 |
 | MeshCore | `examples/simple_room_server/MyMesh.cpp` | BUG-108, BUG-109, BUG-110, BUG-113, BUG-114, BUG-116, BUG-117, BUG-118 |
 
-
 ## Continued deep review addendum
 
 | Project | File | New findings |
@@ -384,7 +381,6 @@ The following cross-file paths received an additional state-machine review. This
 | MeshCore | `examples/simple_repeater/main.cpp` | BUG-121 |
 | MeshCore | `src/Mesh.cpp` | BUG-122 |
 | MeshCore | `src/helpers/radiolib/RadioLibWrappers.cpp` | BUG-124 |
-
 
 ## Latest commit and protocol-lifecycle addendum
 

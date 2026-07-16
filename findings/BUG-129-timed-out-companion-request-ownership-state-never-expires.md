@@ -25,7 +25,7 @@ Official companion firmware has one pending binary tag and one pending discovery
 
 ## How the OpenHop stack handles it
 
-FrameServer adds every expected binary tag to _companion_binary_tags and every discovery tag to _companion_discovery_tags plus ControlHandler._response_callbacks. The only removal paths are matching-response handlers. Client cleanup, server stop, and timeout hints do not clear or expire this state.
+`FrameServer` adds every expected binary tag to `_companion_binary_tags` and every discovery tag to `_companion_discovery_tags` plus `ControlHandler._response_callbacks`. The only removal paths are matching-response handlers. Client cleanup, server stop, and timeout hints do not clear or expire this state.
 
 ## What needs to change
 

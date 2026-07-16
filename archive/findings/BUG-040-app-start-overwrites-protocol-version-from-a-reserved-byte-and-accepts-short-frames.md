@@ -21,11 +21,11 @@ MeshCore negotiates app_target_ver only through DEVICE_QUERY. APP_START has seve
 
 ## How official MeshCore handles it
 
-CMD_DEVICE_QUERY with len >= 2 stores cmd_frame[1]. CMD_APP_START requires total len >= 8, treats bytes 1–7 as reserved, and does not modify app_target_ver.
+`CMD_DEVICE_QUERY` with `len >= 2` stores `cmd_frame[1]`. `CMD_APP_START` requires total `len >= 8`, treats bytes 1–7 as reserved, and does not modify `app_target_ver`.
 
 ## How the OpenHop stack handles it
 
-**OpenHop Core:** _cmd_app_start assigns _app_target_ver = data[0] whenever present and has no minimum seven-byte validation.
+**OpenHop Core:** `_cmd_app_start` assigns `_app_target_ver = data[0]` whenever present and has no minimum seven-byte validation.
 
 ## What needs to change
 

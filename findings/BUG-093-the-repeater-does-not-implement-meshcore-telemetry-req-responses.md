@@ -149,7 +149,7 @@ These links identify the code ranges used for this finding. The local ZIP snapsh
  252 |     }
  253 |     sensors.querySensors(perm_mask, telemetry);
  254 | 
- 255 | 	// This default temperature will be overridden by external sensors (if any)
+ 255 |     // This default temperature will be overridden by external sensors (if any)
  256 |     float temperature = board.getMCUTemperature();
  257 |     if(!isnan(temperature)) { // Supported boards with built-in temperature sensor. ESP32-C3 may return NAN
  258 |       telemetry.addTemperature(TELEM_CHANNEL_SELF, temperature); // Built-in MCU Temperature
