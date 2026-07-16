@@ -336,3 +336,74 @@ This matrix records every source file in the three audit inventories. It was rec
 | `src/helpers/ui/buzzer.cpp` | Official reference reviewed; no additional OpenHop deviation identified from this file. | — |
 | `src/helpers/ui/buzzer.h` | Official reference reviewed; no additional OpenHop deviation identified from this file. | — |
 
+
+
+## Deeper logic pass addendum
+
+The following cross-file paths received an additional state-machine review. This supplements, rather than replaces, the complete inventory above.
+
+| Project | File | New findings |
+|---|---|---|
+| Core | `src/openhop_core/node/dispatcher.py` | BUG-101, BUG-105 |
+| Core | `src/openhop_core/node/handlers/text.py` | BUG-103, BUG-106, BUG-110, BUG-112, BUG-113, BUG-114, BUG-118 |
+| Core | `src/openhop_core/node/handlers/login_server.py` | BUG-107 |
+| Core | `src/openhop_core/node/handlers/protocol_request.py` | BUG-115 |
+| Core | `src/openhop_core/companion/base_send.py` | BUG-103 |
+| Core | `src/openhop_core/companion/companion_bridge.py` | BUG-105 |
+| Core | `src/openhop_core/companion/companion_radio.py` | BUG-101, BUG-105 |
+| Core | `src/openhop_core/companion/frame_server/commands_contacts.py` | BUG-104 |
+| Repeater | `repeater/packet_router.py` | BUG-102 |
+| Repeater | `repeater/handler_helpers/acl.py` | BUG-107, BUG-108, BUG-109, BUG-110, BUG-111, BUG-118 |
+| Repeater | `repeater/handler_helpers/login.py` | BUG-111 |
+| Repeater | `repeater/handler_helpers/text.py` | BUG-109, BUG-110, BUG-113, BUG-114, BUG-116, BUG-117, BUG-118 |
+| Repeater | `repeater/handler_helpers/room_server.py` | BUG-110, BUG-114 |
+| Repeater | `repeater/handler_helpers/protocol_request.py` | BUG-115 |
+| MeshCore | `src/Mesh.cpp` | BUG-101, BUG-102 |
+| MeshCore | `src/helpers/BaseChatMesh.cpp` | BUG-103, BUG-105, BUG-106, BUG-112, BUG-115 |
+| MeshCore | `src/helpers/ClientACL.h` / `ClientACL.cpp` | BUG-107, BUG-111 |
+| MeshCore | `examples/companion_radio/MyMesh.cpp` | BUG-104, BUG-105 |
+| MeshCore | `examples/simple_repeater/MyMesh.cpp` | BUG-115, BUG-117, BUG-118 |
+| MeshCore | `examples/simple_room_server/MyMesh.cpp` | BUG-108, BUG-109, BUG-110, BUG-113, BUG-114, BUG-116, BUG-117, BUG-118 |
+
+
+## Continued deep review addendum
+
+| Project | File | New findings |
+|---|---|---|
+| Core | `src/openhop_core/companion/base_send.py` | BUG-119 |
+| Core | `src/openhop_core/node/handlers/login_response.py` | BUG-120 |
+| Core | `src/openhop_core/protocol/identity.py` | BUG-121 |
+| Core | `src/openhop_core/companion/frame_server/commands_contacts.py` | BUG-123 |
+| Core | `src/openhop_core/companion/base_contacts.py` | BUG-123 |
+| Core | `src/openhop_core/protocol/packet_utils.py` | BUG-124 |
+| Core | `src/openhop_core/hardware/kiss_modem_wrapper.py` | BUG-124 |
+| Repeater | `repeater/identity_manager.py` | BUG-121 |
+| Repeater | `repeater/engine.py` | BUG-122 |
+| MeshCore | `examples/companion_radio/MyMesh.cpp` | BUG-119, BUG-120, BUG-121, BUG-123 |
+| MeshCore | `src/helpers/BaseChatMesh.cpp` | BUG-120 |
+| MeshCore | `examples/simple_repeater/main.cpp` | BUG-121 |
+| MeshCore | `src/Mesh.cpp` | BUG-122 |
+| MeshCore | `src/helpers/radiolib/RadioLibWrappers.cpp` | BUG-124 |
+
+
+## Latest commit and protocol-lifecycle addendum
+
+| Project | File | Review result |
+|---|---|---|
+| Core | `src/openhop_core/node/dispatcher.py` | Latest flood metric extraction and hash cleanup reviewed; no existing status transition. |
+| Core | `src/openhop_core/protocol/packet_utils.py` | Shared flood metrics reviewed; BUG-023 remains fixed and BUG-124 remains open. |
+| Core | `src/openhop_core/hardware/sx1262_wrapper.py` | New commits are diagnostics/formatting; no audit regression found. |
+| Repeater | `repeater/engine.py` | Shared metrics and neighbour reporting reviewed; no forwarding-policy status transition. |
+| Repeater | `repeater/handler_helpers/trace.py` | Route predicate adjustment reviewed; no existing finding changed. |
+| Core | `src/openhop_core/companion/frame_server/transport.py` | BUG-125, BUG-129, BUG-130. |
+| Core | `src/openhop_core/protocol/packet.py` | BUG-126. |
+| Core | `src/openhop_core/companion/stats_collector.py` | BUG-127. |
+| Core | `src/openhop_core/companion/frame_server/commands_device.py` | BUG-127. |
+| Repeater | `repeater/main.py` | BUG-127. |
+| Core | `src/openhop_core/companion/base_callbacks.py` | BUG-128. |
+| Core | `src/openhop_core/companion/frame_server/push.py` | BUG-128, BUG-129. |
+| Core | `src/openhop_core/companion/frame_server/commands_messaging.py` | BUG-129. |
+| Core | `src/openhop_core/companion/frame_server/server.py` | BUG-130. |
+| Repeater | `repeater/companion/frame_server.py` | BUG-128, BUG-130. |
+| MeshCore | `src/Packet.cpp` | Official reference for BUG-126. |
+| MeshCore | `examples/companion_radio/MyMesh.cpp` / `MyMesh.h` | Official references for BUG-125, BUG-127, BUG-129 and BUG-130. |

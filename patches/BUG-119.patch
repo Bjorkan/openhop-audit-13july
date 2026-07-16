@@ -1,0 +1,14 @@
+# BUG-119: Pending ACK entries are created before a text packet is successfully sent
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/companion/base_send.py b/src/openhop_core/companion/base_send.py
+@@
+-            if txt_type != TXT_TYPE_CLI_DATA:
+-                self._track_pending_ack(ack_crc)
+             success = await self._send_packet(...)
++            if success and txt_type != TXT_TYPE_CLI_DATA:
++                self._track_pending_ack(ack_crc)
++            elif not success:
++                self._discard_pending_ack(ack_crc)

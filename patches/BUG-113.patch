@@ -1,0 +1,21 @@
+# BUG-113: Room-server CLI and posts are classified by text prefix instead of wire type
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/node/handlers/text.py b/src/openhop_core/node/handlers/text.py
+@@
+-        packet.decrypted = {"text": decoded_msg}
++        packet.decrypted = {"text": decoded_msg, "txt_type": txt_type,
++                            "sender_timestamp": timestamp_int}
+ diff --git a/repeater/handler_helpers/text.py b/repeater/handler_helpers/text.py
+@@
+-                if self._is_cli_command(message_text):
++                txt_type = packet.decrypted.get("txt_type")
++                if txt_type == TXT_TYPE_CLI_DATA:
+                     ...
+-                # NOT a CLI command - store as regular room post
++                elif txt_type == TXT_TYPE_PLAIN:
++                    ...
++                else:
++                    return

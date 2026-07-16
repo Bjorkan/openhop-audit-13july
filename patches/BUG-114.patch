@@ -1,0 +1,17 @@
+# BUG-114: Room delivery ACKs are sent before post acceptance
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/node/handlers/text.py b/src/openhop_core/node/handlers/text.py
+@@
+-        if ack_hash is not None:
+-            self._schedule_ack(...)
++        decision = await self._deliver_authenticated_text(event)
++        if ack_hash is not None and decision.send_ack:
++            self._schedule_ack(...)
+ diff --git a/repeater/handler_helpers/text.py b/repeater/handler_helpers/text.py
+@@
+-                await room_server.add_post(...)
++                accepted = await room_server.add_post(...)
++                return RoomMessageDecision(send_ack=accepted, persist=accepted)

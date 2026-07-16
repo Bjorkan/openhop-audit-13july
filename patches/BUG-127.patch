@@ -1,0 +1,28 @@
+# LLM-generated implementation sketch only.
+# Not reviewed, compiled, tested, or ready to apply.
+# Verify against the current OpenHop architecture and official MeshCore.
+
+diff --git a/src/openhop_core/companion/stats_collector.py b/src/openhop_core/companion/stats_collector.py
+--- a/src/openhop_core/companion/stats_collector.py
++++ b/src/openhop_core/companion/stats_collector.py
+@@
+         return {
++            "sent": self.packets.flood_tx + self.packets.direct_tx,
++            "recv": self.packets.flood_rx + self.packets.direct_rx,
++            "recv_errors": self.packets.rx_errors,
+             "flood_tx": self.packets.flood_tx,
+@@
+diff --git a/repeater/main.py b/repeater/main.py
+--- a/repeater/main.py
++++ b/repeater/main.py
+@@
+-                "flood_tx": getattr(engine, "forwarded_count", 0),
+-                "direct_tx": 0,
+-                "flood_rx": getattr(engine, "rx_count", 0),
+-                "direct_rx": 0,
+-                "recv_errors": getattr(engine, "dropped_count", 0),
++                "flood_tx": getattr(engine, "sent_flood_count", 0),
++                "direct_tx": getattr(engine, "sent_direct_count", 0),
++                "flood_rx": getattr(engine, "recv_flood_count", 0),
++                "direct_rx": getattr(engine, "recv_direct_count", 0),
++                "recv_errors": radio.get_packets_recv_errors() if radio else 0,

@@ -1,0 +1,23 @@
+# BUG-110: Room-server message replays can create duplicate posts
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/node/handlers/text.py b/src/openhop_core/node/handlers/text.py
+@@
+-        packet.decrypted = {"text": decoded_msg}
++        packet.decrypted = {
++            "text": decoded_msg,
++            "txt_type": txt_type,
++            "sender_timestamp": timestamp_int,
++        }
+ diff --git a/repeater/handler_helpers/text.py b/repeater/handler_helpers/text.py
+@@
+-                sender_timestamp = int(time.time())
++                sender_timestamp = packet.decrypted["sender_timestamp"]
++                if sender_timestamp < sender_client.last_timestamp:
++                    return RoomMessageDecision.reject(send_ack=False)
++                is_retry = sender_timestamp == sender_client.last_timestamp
++                sender_client.last_timestamp = sender_timestamp
++                if is_retry:
++                    return RoomMessageDecision.accept(send_ack=True, persist=False)

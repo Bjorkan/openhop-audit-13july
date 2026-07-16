@@ -1,0 +1,19 @@
+# BUG-107: ACL role values are wire-incompatible and collapse read-only and read-write
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/repeater/handler_helpers/acl.py b/repeater/handler_helpers/acl.py
+@@
+-PERM_ACL_GUEST = 0x01
+-PERM_ACL_ADMIN = 0x02
+-PERM_ACL_READ_WRITE = 0x01
++PERM_ACL_GUEST = 0x00
++PERM_ACL_READ_ONLY = 0x01
++PERM_ACL_READ_WRITE = 0x02
++PERM_ACL_ADMIN = 0x03
+ PERM_ACL_ROLE_MASK = 0x03
+ diff --git a/src/openhop_core/node/handlers/login_server.py b/src/openhop_core/node/handlers/login_server.py
+@@
+-            reply_data[6] = 1 if (permissions & 0x02) else 0
++            reply_data[6] = 1 if (permissions & 0x03) == 0x03 else 0

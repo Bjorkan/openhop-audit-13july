@@ -1,0 +1,29 @@
+# LLM-generated implementation sketch only.
+# Not reviewed, compiled, tested, or ready to apply.
+# Verify against the current OpenHop architecture and official MeshCore.
+
+diff --git a/src/openhop_core/companion/frame_server/server.py b/src/openhop_core/companion/frame_server/server.py
+--- a/src/openhop_core/companion/frame_server/server.py
++++ b/src/openhop_core/companion/frame_server/server.py
+@@
+-        self._companion_binary_tags: set[int] = set()
++        self._companion_binary_tags: dict[int, asyncio.TimerHandle] = {}
+@@
++    def _own_binary_tag(self, tag: int, timeout_ms: int) -> None:
++        self._release_binary_tag(tag)
++        handle = asyncio.get_running_loop().call_later(
++            timeout_ms / 1000.0, self._release_binary_tag, tag
++        )
++        self._companion_binary_tags[tag] = handle
++
++    def _release_binary_tag(self, tag: int) -> None:
++        handle = self._companion_binary_tags.pop(tag, None)
++        if handle:
++            handle.cancel()
++
++    def _clear_owned_request_state(self) -> None:
++        for tag in list(self._companion_binary_tags):
++            self._release_binary_tag(tag)
++        for tag in list(self._companion_discovery_tags):
++            self._control_handler.clear_response_callback(tag)
++        self._companion_discovery_tags.clear()

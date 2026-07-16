@@ -1,0 +1,17 @@
+# LLM-generated implementation sketch only.
+# Not reviewed, compiled, tested, or ready to apply.
+# Verify against the current OpenHop architecture and official MeshCore.
+
+diff --git a/src/openhop_core/companion/frame_server/server.py b/src/openhop_core/companion/frame_server/server.py
+--- a/src/openhop_core/companion/frame_server/server.py
++++ b/src/openhop_core/companion/frame_server/server.py
+@@
+-        client_idle_timeout_sec: Optional[int] = 8 * 60 * 60,
++        client_idle_timeout_sec: Optional[int] = None,
+
+diff --git a/repeater/companion/frame_server.py b/repeater/companion/frame_server.py
+--- a/repeater/companion/frame_server.py
++++ b/repeater/companion/frame_server.py
+@@
+-        client_idle_timeout_sec: Optional[int] = 8 * 60 * 60,
++        client_idle_timeout_sec: Optional[int] = None,

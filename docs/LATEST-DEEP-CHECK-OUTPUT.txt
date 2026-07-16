@@ -1,0 +1,16 @@
+Focused latest-snapshot checks
+==============================
+
+BUG-125 heartbeat frame: 3e05000978563412
+BUG-126 payloadless packet: (True, 0, 2)
+BUG-127 collector totals: {'flood_tx': 1, 'flood_rx': 1, 'direct_tx': 1, 'direct_rx': 0, 'tx_errors': 0, 'total_tx': 2, 'total_rx': 1, 'uptime_secs': 0}
+BUG-127 encoded packet stats: (0, 0, 1, 1, 1, 0, 0)
+BUG-128 callback counts before/after: (1, 1)
+BUG-129 owner state has no disconnect/timeout cleanup: (True, True, True)
+BUG-130 default idle disconnect seconds: 28800
+All 6 focused checks passed.
+
+Full-suite results
+==================
+Core: 1184 passed
+Repeater: 1193 passed, 7 warnings, 20 subtests passed

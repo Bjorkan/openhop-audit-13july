@@ -1,0 +1,12 @@
+# BUG-122: Flood forwarding retransmits RAW_CUSTOM and unknown payload types
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/repeater/engine.py b/repeater/engine.py
+@@
+         route_type = packet.header & PH_ROUTE_MASK
++        payload_type = packet.get_payload_type()
++        if route_type in FLOOD_ROUTES and payload_type not in FIRMWARE_FLOOD_ROUTED_TYPES:
++            packet.drop_reason = "Payload type is not flood-routable"
++            return None

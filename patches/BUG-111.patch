@@ -1,0 +1,20 @@
+# BUG-111: Repeater and room ACL identities are lost on restart
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/repeater/data_acquisition/sqlite_handler.py b/repeater/data_acquisition/sqlite_handler.py
+@@
++CREATE TABLE identity_acl (
++    identity_hash INTEGER NOT NULL,
++    client_pubkey BLOB NOT NULL,
++    permissions INTEGER NOT NULL,
++    sync_since INTEGER NOT NULL DEFAULT 0,
++    out_path_len INTEGER NOT NULL DEFAULT -1,
++    out_path BLOB,
++    PRIMARY KEY(identity_hash, client_pubkey)
++)
+ diff --git a/repeater/handler_helpers/login.py b/repeater/handler_helpers/login.py
+@@
+         identity_acl = ACL(...)
++        identity_acl.load(self.sqlite_handler, identity_hash=hash_byte, local_identity=identity)

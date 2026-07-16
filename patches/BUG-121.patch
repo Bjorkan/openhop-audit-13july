@@ -1,0 +1,18 @@
+# BUG-121: Local identities can use MeshCore-reserved 0x00 and 0xFF prefixes
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/protocol/identity.py b/src/openhop_core/protocol/identity.py
+@@
+-            self.signing_key = SigningKey(seed) if seed else SigningKey.generate()
++            if seed:
++                self.signing_key = SigningKey(seed)
++            else:
++                for _ in range(11):
++                    candidate = SigningKey.generate()
++                    if candidate.verify_key.encode()[0] not in (0x00, 0xFF):
++                        self.signing_key = candidate
++                        break
++                else:
++                    raise IdentityGenerationError("reserved identity prefix")

@@ -1,0 +1,15 @@
+# BUG-117: CLI replies do not use a unique timestamp distinct from the request
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/repeater/handler_helpers/text.py b/repeater/handler_helpers/text.py
+@@
+-    async def _send_cli_reply(self, original_packet, reply_text, handler_info, sender_client=None):
++    async def _send_cli_reply(self, original_packet, reply_text, handler_info,
++                              sender_client=None, sender_timestamp=None):
+@@
+-            timestamp = int(time.time())
++            timestamp = self.clock.get_current_time_unique()
++            if sender_timestamp is not None and timestamp == sender_timestamp:
++                timestamp += 1

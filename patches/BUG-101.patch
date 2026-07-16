@@ -1,0 +1,23 @@
+# BUG-101: Standalone MeshNode registers group text but not group data
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/node/handlers/group_data.py b/src/openhop_core/node/handlers/group_data.py
+new file mode 100644
+@@
++class GroupDataHandler:
++    """Authenticate GRP_DATA against colliding channel hashes and emit typed data."""
++    async def __call__(self, packet):
++        channel, plaintext = self.decrypt_matching_channel(packet)
++        if channel is None or len(plaintext) < 3:
++            return HandlerResult.consumed()
++        data_type = int.from_bytes(plaintext[:2], "little")
++        data_len = plaintext[2]
++        if data_len > len(plaintext) - 3:
++            return HandlerResult.consumed()
++        await self.on_channel_data(channel, packet, data_type, plaintext[3:3 + data_len])
++
+ diff --git a/src/openhop_core/node/dispatcher.py b/src/openhop_core/node/dispatcher.py
+@@
++        self.register_handler(PAYLOAD_TYPE_GRP_DATA, core.group_data_handler)

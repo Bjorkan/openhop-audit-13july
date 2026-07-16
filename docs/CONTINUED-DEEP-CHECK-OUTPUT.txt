@@ -1,0 +1,21 @@
+CONTINUED DEEP SOURCE ASSERTIONS
+=================================
+
+PASS BUG-119: pending ACK is inserted before the send result is known
+PASS BUG-119-official: firmware records expected ACK only in the successful-send branch
+PASS BUG-120: login response parses keep-alive but starts no connection lifecycle
+PASS BUG-120-official: firmware starts a connection after successful login
+PASS BUG-120-lifecycle: firmware periodically services keep-alive connections
+PASS BUG-121: Core identity construction does not reject reserved first-byte prefixes
+PASS BUG-121-official: official companion regenerates reserved-prefix identities
+PASS BUG-121-repeater-official: official repeater applies the same reserved-prefix rule
+PASS BUG-122: generic flood forwarding has no RAW_CUSTOM/unknown payload gate
+PASS BUG-122-official-raw: firmware suppresses RAW_CUSTOM flood routing
+PASS BUG-122-official-unknown: firmware suppresses unknown flood payload types
+PASS BUG-123: CMD_RESET_PATH mutates memory without invoking contact persistence
+PASS BUG-123-official: firmware schedules persistent contact storage after reset
+PASS BUG-124: fallback estimator enforces a 50 ms minimum
+PASS BUG-124-use: KISS TX metadata uses the floored estimator when GET_AIRTIME is unavailable
+PASS BUG-124-official: firmware returns actual RadioLib airtime without a floor
+
+TOTAL: 16 focused assertions passed

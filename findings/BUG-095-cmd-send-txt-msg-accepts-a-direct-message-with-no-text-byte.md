@@ -13,7 +13,7 @@
 
 OpenHop accepts the 12-byte handler payload containing only type, attempt, timestamp and recipient prefix, then calls the send pipeline with an empty string. Official MeshCore requires the complete command frame to contain at least one text byte. A malformed or truncated app frame can therefore become a real encrypted direct message in OpenHop instead of being rejected.
 
-**Current status: 🔴 Not fixed.** Rechecked against current Core head [`41b6201`](https://github.com/openhop-dev/openhop_core/commit/41b6201ea2e3cb9b8468b0eb80c9e22fdad4a6c8) and Repeater head [`dd6dfce`](https://github.com/openhop-dev/openhop_repeater/commit/dd6dfce9e89fab76967d91e202d8e47217c30474), as applicable. The mismatch remains present; the new commit range does not complete this MeshCore compatibility path.
+**Current status: 🔴 Not fixed.** Rechecked against latest supplied Core head [`abe1d85`](https://github.com/openhop-dev/openhop_core/commit/abe1d857734d5d1f549ada27af6f95c7e5e53e95) and Repeater head [`b62960f`](https://github.com/openhop-dev/openhop_repeater/commit/b62960fa3041447bedadb2131d892a6565d7e519), as applicable. The three new Core commits and two new Repeater commits do not remove this mismatch; the complete regression suites and focused changed-path review found no contrary behavior.
 
 ## What happens
 

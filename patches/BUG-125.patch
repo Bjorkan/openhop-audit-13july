@@ -1,0 +1,18 @@
+# LLM-generated implementation sketch only.
+# Not reviewed, compiled, tested, or ready to apply.
+# Verify against the current OpenHop architecture and official MeshCore.
+
+diff --git a/src/openhop_core/companion/frame_server/transport.py b/src/openhop_core/companion/frame_server/transport.py
+--- a/src/openhop_core/companion/frame_server/transport.py
++++ b/src/openhop_core/companion/frame_server/transport.py
+@@
+-                try:
+-                    frame = await asyncio.wait_for(self._write_queue.get(), timeout=self._heartbeat_interval)
+-                except asyncio.TimeoutError:
+-                    now = self.bridge.get_time()
+-                    hb_data = bytes([RESP_CODE_CURR_TIME]) + struct.pack("<I", now)
+-                    frame = bytes([FRAME_OUTBOUND_PREFIX]) + struct.pack("<H", len(hb_data)) + hb_data
++                # MeshCore response codes are request-bound. Rely on TCP
++                # keepalive/socket failure detection rather than injecting a
++                # synthetic RESP_CODE_CURR_TIME frame.
++                frame = await self._write_queue.get()

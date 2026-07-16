@@ -1,0 +1,11 @@
+# BUG-116: Room-server posts lose trailing whitespace
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/repeater/handler_helpers/text.py b/repeater/handler_helpers/text.py
+@@
+-            message_text = message_text.rstrip("\x00").rstrip()
++            # Core has already stopped at the first protocol NUL. Preserve the
++            # authenticated text exactly, including trailing whitespace.
++            message_text = message_text.rstrip("\x00")

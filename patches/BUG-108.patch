@@ -1,0 +1,17 @@
+# BUG-108: Room-server read-only fallback only works for blank passwords
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/repeater/handler_helpers/acl.py b/repeater/handler_helpers/acl.py
+@@
+-            if not admin_pwd and not guest_pwd:
++            if not admin_pwd and not guest_pwd and not self.allow_read_only:
+                 return False, 0
+@@
+-        else:
+-            return False, 0
++        elif is_room_server and self.allow_read_only:
++            permissions = PERM_ACL_GUEST
++        else:
++            return False, 0

@@ -13,7 +13,7 @@
 
 MeshCore supports a four-byte command frame—command plus three reserved bytes—to request the companion node's own telemetry. OpenHop requires the reserved bytes plus a 32-byte remote public key, so the valid self form is rejected with ILLEGAL_ARG and never produces a telemetry push.
 
-**Current status: 🔴 Not fixed.** Rechecked against current Core head [`41b6201`](https://github.com/openhop-dev/openhop_core/commit/41b6201ea2e3cb9b8468b0eb80c9e22fdad4a6c8) and Repeater head [`dd6dfce`](https://github.com/openhop-dev/openhop_repeater/commit/dd6dfce9e89fab76967d91e202d8e47217c30474), as applicable. The mismatch remains present; the new commit range does not complete this MeshCore compatibility path.
+**Current status: 🔴 Not fixed.** Rechecked against latest supplied Core head [`abe1d85`](https://github.com/openhop-dev/openhop_core/commit/abe1d857734d5d1f549ada27af6f95c7e5e53e95) and Repeater head [`b62960f`](https://github.com/openhop-dev/openhop_repeater/commit/b62960fa3041447bedadb2131d892a6565d7e519), as applicable. The three new Core commits and two new Repeater commits do not remove this mismatch; the complete regression suites and focused changed-path review found no contrary behavior.
 
 ## What happens
 

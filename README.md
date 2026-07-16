@@ -8,42 +8,43 @@ The audit distinguishes between **protocol defects** and **intentional host-side
 
 | Project | Snapshot | Notes |
 |---|---|---|
-| OpenHop Core | [`41b6201`](https://github.com/openhop-dev/openhop_core/commit/41b6201ea2e3cb9b8468b0eb80c9e22fdad4a6c8) | Current supplied head; **8 commits** reviewed after `9ea7269` |
-| OpenHop Repeater | [`dd6dfce`](https://github.com/openhop-dev/openhop_repeater/commit/dd6dfce9e89fab76967d91e202d8e47217c30474) | Current supplied head; **11 commits** reviewed after `6aafa7f` |
+| OpenHop Core | [`abe1d85`](https://github.com/openhop-dev/openhop_core/commit/abe1d857734d5d1f549ada27af6f95c7e5e53e95) | Current supplied head; **3 commits** reviewed after `41b6201` |
+| OpenHop Repeater | [`b62960f`](https://github.com/openhop-dev/openhop_repeater/commit/b62960fa3041447bedadb2131d892a6565d7e519) | Current supplied head; **2 commits** reviewed after `dd6dfce` |
 | MeshCore | `v1.16.0` snapshot | Unchanged official comparison implementation; companion protocol level 13 |
 
-Exact ZIP hashes and the reviewed commit ranges are recorded in [AUDIT-SNAPSHOT.txt](AUDIT-SNAPSHOT.txt). The per-change assessment is in [NEW-COMMITS-REVIEW.md](docs/NEW-COMMITS-REVIEW.md).
+Exact ZIP hashes and the reviewed commit ranges are recorded in [AUDIT-SNAPSHOT.txt](AUDIT-SNAPSHOT.txt). The current per-change assessment is in [LATEST-COMMITS-AND-DEEP-REVIEW.md](docs/LATEST-COMMITS-AND-DEEP-REVIEW.md).
 
 ## Results
 
 | Metric | Count |
 |---|---:|
-| Total numbered audit reports | **100** |
-| Confirmed defect findings | **99** |
-| New reports added in this update | **0** |
-| New Core commits reviewed | **8** |
-| New Repeater commits reviewed | **11** |
+| Total numbered audit reports | **130** |
+| Confirmed defect findings | **130** |
+| New reports added in this update | **6** |
+| New Core commits reviewed | **3** |
+| New Repeater commits reviewed | **2** |
 | Archived as fully fixed or fully implemented | **61** |
 | Current intentional-divergence reports | **0** |
-| Active defects | **39** |
+| Active defects | **69** |
 | Active: partially fixed | **4** |
-| Active: not fixed | **35** |
+| Active: not fixed | **65** |
 | Core Python source files reviewed | **88** |
-| Repeater Python source files reviewed | **67** |
+| Repeater Python source files reviewed | **68** |
 | MeshCore C/C++ and header reference files reviewed | **164** |
-| Protocol-relevant source lines indexed | **95,975** |
-| Core tests | **1,182 passed** |
+| Protocol-relevant source lines indexed | **99,266** |
+| Core tests | **1,184 passed** |
 | Repeater tests | **1,193 passed + 20 subtests passed** |
-| Targeted changed-path tests | **259 Core + 440 Repeater passed** |
+| Focused latest-snapshot checks | **6 passed** |
 
-Status changes in this update:
+Changes in this latest commit-impact and deeper review:
 
-- BUG-002, BUG-023, BUG-048 and BUG-060 are now fully fixed/implemented and archived.
-- BUG-081 and BUG-082 improved from not fixed to partially fixed.
-- BUG-022 and BUG-054 remain partially fixed with updated remaining gaps.
-- No archived correction regressed.
+- Reviewed all **3 new Core commits** and **2 new Repeater commits** after the previous audit heads, including every changed source and test file.
+- Rechecked all 124 pre-existing findings. No classification changed and no archived correction regressed. BUG-023 remains fully implemented; BUG-124 remains open because the 50 ms fallback floor is unchanged.
+- Added BUG-125–BUG-130 for unsolicited protocol heartbeats, zero-payload packet acceptance, incorrect packet statistics, callback ownership loss, unexpired request ownership state and the default idle disconnect.
+- Fresh full suites passed: **1,184 Core tests** and **1,193 Repeater tests plus 20 subtests**. Six focused runtime/source checks for the new findings also passed.
+- Maintainer policy remains applied: bounded host-side capacity and observational neighbour metrics are not defects solely because firmware uses smaller embedded structures.
 
-The [file review matrix](docs/FILE-REVIEW-MATRIX.md) records every reviewed source file and the finding IDs associated with it. Focused runtime reproductions are recorded in [REPRODUCTION-CHECKS.md](docs/REPRODUCTION-CHECKS.md).
+The [file review matrix](docs/FILE-REVIEW-MATRIX.md) records the reviewed source. This pass is documented in [Latest commit-impact and deeper protocol review](docs/LATEST-COMMITS-AND-DEEP-REVIEW.md), with focused checks in [REPRODUCTION-CHECKS.md](docs/REPRODUCTION-CHECKS.md).
 
 ## Active findings
 
@@ -88,6 +89,38 @@ The [file review matrix](docs/FILE-REVIEW-MATRIX.md) records every reviewed sour
 | 🔴 [BUG-098](findings/BUG-098-protocol-level-13-is-reported-while-reboot-device-pin-and-factory-reset-commands-are-absent.md) | Medium | Companion command coverage | OpenHop Core | Protocol level 13 is reported while reboot, device-PIN and factory-reset commands are absent |
 | 🔴 [BUG-099](findings/BUG-099-path-discovery-pushes-replace-encoded-path-lengths-with-raw-byte-counts.md) | High | Companion path discovery | OpenHop Core | Path-discovery pushes replace encoded path lengths with raw byte counts |
 | 🔴 [BUG-100](findings/BUG-100-the-global-room-server-rate-limiter-releases-its-lock-before-transmission-begins.md) | High | Room server scheduling | OpenHop Repeater | The global room-server rate limiter releases its lock before transmission begins |
+
+| 🔴 [BUG-101](findings/BUG-101-standalone-meshnode-registers-group-text-but-not-group-data.md) | Medium | Default packet dispatch | OpenHop Core | Standalone MeshNode registers group text but not group data |
+| 🔴 [BUG-102](findings/BUG-102-repeater-pushes-non-zero-hop-and-non-discovery-control-packets-to-companions.md) | Medium | CONTROL delivery | OpenHop Repeater | Repeater pushes non-zero-hop and non-discovery CONTROL packets to companions |
+| 🔴 [BUG-103](findings/BUG-103-the-command-response-waiter-captures-unrelated-or-wrong-sender-messages.md) | High | Companion CLI correlation | OpenHop Core | The command-response waiter captures unrelated or wrong-sender messages |
+| 🔴 [BUG-104](findings/BUG-104-cmd-add-update-contact-rejects-the-valid-35-byte-minimum-body.md) | Medium | Companion contact commands | OpenHop Core | CMD_ADD_UPDATE_CONTACT rejects the valid 35-byte minimum body |
+| 🔴 [BUG-105](findings/BUG-105-companion-endpoints-cannot-answer-peer-protocol-requests.md) | High | Peer request handling | OpenHop Core | Companion endpoints cannot answer peer protocol requests |
+| 🔴 [BUG-106](findings/BUG-106-incoming-plain-and-signed-messages-do-not-refresh-contact-lastmod.md) | Medium | Contact activity tracking | OpenHop Core | Incoming plain and signed messages do not refresh contact lastmod |
+| 🔴 [BUG-107](findings/BUG-107-acl-role-values-are-wire-incompatible-and-collapse-read-only-and-read-write.md) | High | ACL wire permissions | OpenHop Core, OpenHop Repeater | ACL role values are wire-incompatible and collapse read-only and read-write |
+| 🔴 [BUG-108](findings/BUG-108-room-server-read-only-fallback-only-works-for-blank-passwords.md) | Medium | Room login policy | OpenHop Repeater | Room-server read-only fallback only works for blank passwords |
+| 🔴 [BUG-109](findings/BUG-109-room-server-read-only-clients-can-create-posts.md) | High | Room permissions | OpenHop Repeater | Room-server read-only clients can create posts |
+| 🔴 [BUG-110](findings/BUG-110-room-server-message-replays-can-create-duplicate-posts.md) | High | Room replay protection | OpenHop Core, OpenHop Repeater | Room-server message replays can create duplicate posts |
+| 🔴 [BUG-111](findings/BUG-111-repeater-and-room-acl-identities-are-lost-on-restart.md) | High | ACL persistence | OpenHop Repeater | Repeater and room ACL identities are lost on restart |
+| 🔴 [BUG-112](findings/BUG-112-unsupported-inbound-text-types-are-delivered-as-application-messages.md) | Medium | Inbound text parsing | OpenHop Core | Unsupported inbound text types are delivered as application messages |
+| 🔴 [BUG-113](findings/BUG-113-room-server-cli-and-posts-are-classified-by-text-prefix-instead-of-wire-type.md) | High | Room message dispatch | OpenHop Core, OpenHop Repeater | Room-server CLI and posts are classified by text prefix instead of wire type |
+| 🔴 [BUG-114](findings/BUG-114-room-delivery-acks-are-sent-before-post-acceptance.md) | High | Room delivery semantics | OpenHop Core, OpenHop Repeater | Room delivery ACKs are sent before post acceptance |
+| 🔴 [BUG-115](findings/BUG-115-authenticated-request-replies-wait-500-ms-instead-of-300-ms.md) | Low | Authenticated request timing | OpenHop Core, OpenHop Repeater | Authenticated request replies wait 500 ms instead of 300 ms |
+| 🔴 [BUG-116](findings/BUG-116-room-server-posts-lose-trailing-whitespace.md) | Low | Room message fidelity | OpenHop Repeater | Room-server posts lose trailing whitespace |
+| 🔴 [BUG-117](findings/BUG-117-cli-replies-do-not-use-a-unique-timestamp-distinct-from-the-request.md) | Medium | CLI reply serialization | OpenHop Repeater | CLI replies do not use a unique timestamp distinct from the request |
+| 🔴 [BUG-118](findings/BUG-118-cli-command-retries-can-execute-administrative-actions-again.md) | High | CLI replay protection | OpenHop Core, OpenHop Repeater | CLI command retries can execute administrative actions again |
+
+| 🔴 [BUG-119](findings/BUG-119-pending-ack-entries-are-created-before-a-text-packet-is-successfully-sent.md) | High | Companion ACK lifecycle | OpenHop Core | Pending ACK entries are created before a text packet is successfully sent |
+| 🔴 [BUG-120](findings/BUG-120-successful-server-logins-do-not-start-keep-alive-connections.md) | High | Server connection lifecycle | OpenHop Core | Successful server logins do not start keep-alive connections |
+| 🔴 [BUG-121](findings/BUG-121-local-identities-can-use-meshcore-reserved-00-and-ff-prefixes.md) | High | Identity generation and validation | OpenHop Core, OpenHop Repeater | Local identities can use MeshCore-reserved 0x00 and 0xFF prefixes |
+| 🔴 [BUG-122](findings/BUG-122-flood-forwarding-retransmits-raw-custom-and-unknown-payload-types.md) | High | Flood payload routing | OpenHop Repeater | Flood forwarding retransmits RAW_CUSTOM and unknown payload types |
+| 🔴 [BUG-123](findings/BUG-123-cmd-reset-path-does-not-persist-the-cleared-route.md) | Medium | Companion contact persistence | OpenHop Core, OpenHop Repeater | CMD_RESET_PATH does not persist the cleared route |
+| 🔴 [BUG-124](findings/BUG-124-kiss-fallback-airtime-retains-a-non-firmware-50-ms-floor.md) | Low | Radio airtime fallback | OpenHop Core, OpenHop Repeater | KISS fallback airtime retains a non-firmware 50 ms floor |
+| 🔴 [BUG-125](findings/BUG-125-the-tcp-frame-server-emits-unsolicited-current-time-responses-as-heartbeats.md) | High | Companion TCP framing | OpenHop Core, OpenHop Repeater | The TCP frame server emits unsolicited current-time responses as heartbeats |
+| 🔴 [BUG-126](findings/BUG-126-core-accepts-wire-packets-with-no-payload-byte.md) | Medium | Packet parsing | OpenHop Core | Core accepts wire packets with no payload byte |
+| 🔴 [BUG-127](findings/BUG-127-companion-packet-statistics-zero-totals-and-classify-all-traffic-as-flood.md) | Medium | Companion statistics | OpenHop Core, OpenHop Repeater | Companion packet statistics zero totals and classify all traffic as flood |
+| 🔴 [BUG-128](findings/BUG-128-a-companion-tcp-connection-removes-every-host-event-subscriber.md) | High | Companion callback lifecycle | OpenHop Core, OpenHop Repeater | A companion TCP connection removes every host event subscriber |
+| 🔴 [BUG-129](findings/BUG-129-timed-out-companion-request-ownership-state-never-expires.md) | Medium | Companion request lifecycle | OpenHop Core, OpenHop Repeater | Timed-out companion request ownership state never expires |
+| 🔴 [BUG-130](findings/BUG-130-the-default-tcp-idle-timeout-disconnects-valid-long-lived-companion-sessions.md) | Medium | Companion connection lifecycle | OpenHop Core, OpenHop Repeater | The default TCP idle timeout disconnects valid long-lived companion sessions |
 
 ## Intentional divergences
 
@@ -163,7 +196,10 @@ General accepted host-side differences remain documented in [Intentional differe
 
 ## Supporting documents
 
-- [Review of the new commit ranges](docs/NEW-COMMITS-REVIEW.md)
+- [Latest commit-impact and deeper protocol review](docs/LATEST-COMMITS-AND-DEEP-REVIEW.md)
+- [Review of the previous commit ranges](docs/NEW-COMMITS-REVIEW.md)
+- [Deeper logic, ACL and room-server recheck](docs/DEEPER-LOGIC-RECHECK.md)
+- [Continued failure-path and lifecycle review](docs/CONTINUED-DEEP-REVIEW.md)
 - [Deep differential audit report](docs/DEEP-DIFFERENTIAL-AUDIT.md)
 - [File-by-file review matrix](docs/FILE-REVIEW-MATRIX.md)
 - [Intentional differences and non-findings](docs/INTENTIONAL-DIFFERENCES.md)

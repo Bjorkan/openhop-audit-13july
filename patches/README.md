@@ -7,3 +7,5 @@ They are not reviewed, compiled, tested, or ready to apply directly. They show o
 Each `BUG-NNN.patch` is independent and the sketches are not designed as a combined patch series. Sketches for fully fixed historical findings are under [`archive/patches/`](../archive/patches/).
 
 The deeper follow-up adds BUG-081 through BUG-100. BUG-023 has been moved to `archive/intentional/patches/` and is no longer an active recommendation.
+
+The latest pass adds illustrative sketches for BUG-125 through BUG-130.

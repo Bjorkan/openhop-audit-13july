@@ -1,0 +1,17 @@
+# BUG-106: Incoming plain and signed messages do not refresh contact lastmod
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/node/handlers/text.py b/src/openhop_core/node/handlers/text.py
+@@
+         if txt_type == TXT_TYPE_SIGNED_PLAIN:
+             ...
++
++        if txt_type in (TXT_TYPE_PLAIN, TXT_TYPE_SIGNED_PLAIN):
++            receive_time = self.clock.get_current_time_unique()
++            matched_contact.lastmod = receive_time
++            backing = getattr(matched_contact, "_contact", matched_contact)
++            backing.lastmod = receive_time
++            if hasattr(self.contacts, "update"):
++                self.contacts.update(backing)

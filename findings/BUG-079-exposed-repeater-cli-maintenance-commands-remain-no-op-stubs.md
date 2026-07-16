@@ -13,7 +13,7 @@
 
 The command router advertises and accepts `clear stats` and `tempradio`, validates their syntax, then reports that they are not implemented. Operators and automated clients cannot rely on the common MeshCore CLI contract.
 
-**Current status: 🔴 Not fixed.** The new commits correctly wire `rxdelay`, `txdelay`, and `direct.txdelay` to the `delays` configuration section, but the maintenance operations tracked by this report remain exposed stubs: `clear stats` and the temporary-radio command paths still return “Not yet implemented”; see [`mesh_cli.py` L1290–L1322](https://github.com/openhop-dev/openhop_repeater/blob/dd6dfce9e89fab76967d91e202d8e47217c30474/repeater/handler_helpers/mesh_cli.py#L1290-L1322). Reviewed at Repeater head [`dd6dfce`](https://github.com/openhop-dev/openhop_repeater/commit/dd6dfce9e89fab76967d91e202d8e47217c30474); the unrelated delay-setting correction does not resolve the finding.
+**Current status: 🔴 Not fixed.** Rechecked against latest supplied Core head [`abe1d85`](https://github.com/openhop-dev/openhop_core/commit/abe1d857734d5d1f549ada27af6f95c7e5e53e95) and Repeater head [`b62960f`](https://github.com/openhop-dev/openhop_repeater/commit/b62960fa3041447bedadb2131d892a6565d7e519), as applicable. The three new Core commits and two new Repeater commits do not remove this mismatch; the complete regression suites and focused changed-path review found no contrary behavior.
 
 ## What happens
 

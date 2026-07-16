@@ -1,0 +1,15 @@
+# BUG-123: CMD_RESET_PATH does not persist the cleared route
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/companion/frame_server/commands_contacts.py b/src/openhop_core/companion/frame_server/commands_contacts.py
+@@
+         ok = self.bridge.reset_path(pubkey)
++        if ok:
++            try:
++                await self._save_contacts()
++            except Exception:
++                self._write_err(ERR_CODE_STORAGE)
++                return
+         self._write_ok() if ok else self._write_err(ERR_CODE_NOT_FOUND)

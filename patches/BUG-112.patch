@@ -1,0 +1,11 @@
+# BUG-112: Unsupported inbound text types are delivered as application messages
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/node/handlers/text.py b/src/openhop_core/node/handlers/text.py
+@@
+         txt_type = (flags >> 2) & 0x3F
++        if txt_type not in (TXT_TYPE_PLAIN, TXT_TYPE_CLI_DATA, TXT_TYPE_SIGNED_PLAIN):
++            self.log(f"Unsupported text type: {txt_type}")
++            return HandlerResult.consumed()

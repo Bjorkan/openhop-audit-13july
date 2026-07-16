@@ -1,0 +1,21 @@
+# BUG-105: Companion endpoints cannot answer peer protocol requests
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/companion/companion_bridge.py b/src/openhop_core/companion/companion_bridge.py
+@@
++        request_handler = ProtocolRequestHandler(
++            local_identity=identity,
++            contacts=self.contacts,
++            request_handlers=self._contact_request_handlers,
++            log_fn=_log,
++        )
++        request_handler.set_packet_injector(self._packet_injector)
+         self._handlers = {
+@@
++            PAYLOAD_TYPE_REQ: request_handler,
+         }
+ diff --git a/src/openhop_core/node/dispatcher.py b/src/openhop_core/node/dispatcher.py
+@@
++        self.register_handler(PAYLOAD_TYPE_REQ, core.protocol_request_handler)

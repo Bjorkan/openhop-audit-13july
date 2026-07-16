@@ -1,0 +1,51 @@
+DEEPER LOGIC SOURCE ASSERTIONS
+==============================
+
+PASS BUG-101: Standalone default dispatcher omits GRP_DATA while MeshCore dispatches it
+  Evidence: register_default_handlers has GRP_TXT but no GRP_DATA; Mesh.cpp has a GRP_DATA case
+PASS BUG-102: Repeater companion CONTROL push lacks zero-hop/high-bit gate
+  Evidence: CONTROL branch calls deliver_control_data for every CONTROL packet
+PASS BUG-103: Command waiter is global and accepts any decoded message
+  Evidence: callback invocation has no type/sender match; each command replaces the one handler callback
+PASS BUG-104: ADD_UPDATE_CONTACT rejects the official minimum body
+  Evidence: OpenHop requires 36 bytes after command; firmware minimum is 35 after command
+PASS BUG-105: Companion endpoints omit authenticated peer REQ handling
+  Evidence: default MeshNode and CompanionBridge do not register REQ; CompanionRadio fallback handles only GRP_DATA
+PASS BUG-106: Inbound plain/signed messages do not update contact lastmod
+  Evidence: OpenHop updates sync_since but never lastmod; firmware updates lastmod for plain and signed text
+PASS BUG-107: ACL role values differ and read-only/read-write are collapsed
+  Evidence: OpenHop={'GUEST': '0x01', 'ADMIN': '0x02', 'READ_WRITE': '0x01', 'ROLE_MASK': '0x03'}; MeshCore={'ROLE_MASK': '3', 'GUEST': '0', 'READ_ONLY': '1', 'READ_WRITE': '2', 'ADMIN': '3'}
+PASS BUG-108: Read-only fallback is restricted to blank passwords
+  Evidence: OpenHop allow_read_only path is inside blank-password branch; firmware falls back after any password mismatch
+PASS BUG-109: Room post storage has no read-only permission gate
+  Evidence: OpenHop stores every authenticated non-prefix-command; firmware denies guest/read-only posts
+PASS BUG-110: Room post path lacks per-client timestamp replay watermark
+  Evidence: OpenHop replaces sender timestamp and inserts every accepted packet; firmware checks/updates client.last_timestamp
+PASS BUG-111: ACL identities and permissions are memory-only
+  Evidence: OpenHop constructs empty ACL objects on startup; firmware loads/saves /s_contacts
+PASS BUG-112: Unsupported inbound TXT types reach application delivery
+  Evidence: OpenHop only changes ACK behavior by type then publishes; firmware has an unsupported-type terminal branch
+PASS BUG-113: Room CLI/post classification uses message prefixes, not txt_type
+  Evidence: OpenHop discards txt_type before room dispatch and guesses from text; firmware switches on flags
+PASS BUG-114: Delivery ACK is scheduled before room acceptance
+  Evidence: Core schedules ACK before Repeater checks permission/rate-limit/storage; firmware enables ACK only after accepted post path
+PASS BUG-115: Authenticated REQ response delay is 500 ms instead of 300 ms
+  Evidence: OpenHop shared constant=500 and Repeater sleeps it; firmware constant=300
+PASS BUG-116: Room posts lose trailing whitespace
+  Evidence: OpenHop strips all trailing Unicode whitespace; firmware copies the C string as supplied
+PASS BUG-117: CLI replies do not use a unique timestamp distinct from the request
+  Evidence: OpenHop uses whole-second wall time without request comparison; firmware uses a unique timestamp and increments equality
+PASS BUG-118: CLI command retries can execute the administrative command again
+  Evidence: OpenHop executes every prefix-classified command; firmware gates by timestamp and suppresses execution for equal-timestamp retries
+
+18 focused source checks passed.
+
+
+BYTECODE COMPILATION
+====================
+
+$ python -m compileall -q core/src/openhop_core
+PASS core compileall
+
+$ python -m compileall -q repeater/repeater
+PASS repeater compileall

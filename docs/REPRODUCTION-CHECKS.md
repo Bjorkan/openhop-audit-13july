@@ -46,3 +46,57 @@ Passing existing tests does not invalidate these checks. The findings cover comp
 ## New commit-range verification
 
 The full transition checks for BUG-002, BUG-023, BUG-048 and BUG-060 are covered by the newly added project tests and the 259/440 changed-path test runs summarized in [NEW-COMMITS-REVIEW.md](NEW-COMMITS-REVIEW.md).
+
+
+## Deeper logic recheck: BUG-101–BUG-118
+
+The current pass used focused source assertions because several optional radio/web dependencies were unavailable in the execution environment. These checks do not replace the previously completed full suites; they isolate the exact parity predicates behind the new reports.
+
+| Finding | Focused check | Result |
+|---|---|---|
+| BUG-101 | Standalone MeshNode registers group text but not group data | PASS |
+| BUG-102 | Repeater pushes non-zero-hop and non-discovery CONTROL packets to companions | PASS |
+| BUG-103 | The command-response waiter captures unrelated or wrong-sender messages | PASS |
+| BUG-104 | CMD_ADD_UPDATE_CONTACT rejects the valid 35-byte minimum body | PASS |
+| BUG-105 | Companion endpoints cannot answer peer protocol requests | PASS |
+| BUG-106 | Incoming plain and signed messages do not refresh contact lastmod | PASS |
+| BUG-107 | ACL role values are wire-incompatible and collapse read-only and read-write | PASS |
+| BUG-108 | Room-server read-only fallback only works for blank passwords | PASS |
+| BUG-109 | Room-server read-only clients can create posts | PASS |
+| BUG-110 | Room-server message replays can create duplicate posts | PASS |
+| BUG-111 | Repeater and room ACL identities are lost on restart | PASS |
+| BUG-112 | Unsupported inbound text types are delivered as application messages | PASS |
+| BUG-113 | Room-server CLI and posts are classified by text prefix instead of wire type | PASS |
+| BUG-114 | Room delivery ACKs are sent before post acceptance | PASS |
+| BUG-115 | Authenticated request replies wait 500 ms instead of 300 ms | PASS |
+| BUG-116 | Room-server posts lose trailing whitespace | PASS |
+| BUG-117 | CLI replies do not use a unique timestamp distinct from the request | PASS |
+| BUG-118 | CLI command retries can execute administrative actions again | PASS |
+
+The complete output is stored in [`DEEPER-LOGIC-CHECK-OUTPUT.txt`](DEEPER-LOGIC-CHECK-OUTPUT.txt). Core and Repeater bytecode compilation also passed.
+
+
+## Continued deep review: BUG-119–BUG-124
+
+| Finding | Focused parity predicate | Result |
+|---|---|---|
+| BUG-119 | Pending ACK entries are created before a text packet is successfully sent | PASS |
+| BUG-120 | Successful server logins do not start keep-alive connections | PASS |
+| BUG-121 | Local identities can use MeshCore-reserved 0x00 and 0xFF prefixes | PASS |
+| BUG-122 | Flood forwarding retransmits RAW_CUSTOM and unknown payload types | PASS |
+| BUG-123 | CMD_RESET_PATH does not persist the cleared route | PASS |
+| BUG-124 | KISS fallback airtime retains a non-firmware 50 ms floor | PASS |
+
+The complete 16-assertion output is stored in [`CONTINUED-DEEP-CHECK-OUTPUT.txt`](CONTINUED-DEEP-CHECK-OUTPUT.txt). These checks isolate the cited source behavior and do not replace physical-radio interoperability testing.
+
+
+## Latest-snapshot checks for BUG-125–BUG-130
+
+The executable focused harness is represented by the captured output in [LATEST-DEEP-CHECK-OUTPUT.txt](LATEST-DEEP-CHECK-OUTPUT.txt). It verified:
+
+1. An unsolicited heartbeat frame `3e05000978563412` is emitted without a command.
+2. A two-byte header/path-length packet is accepted with `payload_len == 0`.
+3. Non-zero `total_tx`/`total_rx` become zero `sent`/`recv` fields in the packet-stats wire frame.
+4. A pre-registered application callback is absent after FrameServer setup.
+5. Binary/discovery ownership state has no timeout, disconnect or stop cleanup.
+6. The default client idle timeout is 28,800 seconds rather than firmware-compatible `None`.

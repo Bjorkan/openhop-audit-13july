@@ -1,0 +1,13 @@
+# BUG-120: Successful server logins do not start keep-alive connections
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/node/handlers/login_response.py b/src/openhop_core/node/handlers/login_response.py
+@@
+         if success:
+             contact.last_login_success = response_data["timestamp"]
+             contact.is_admin = response_data["is_admin"]
++            interval_s = int(response_data["keep_alive_interval"]) * 16
++            if interval_s:
++                self.connection_manager.start(contact, interval_s)

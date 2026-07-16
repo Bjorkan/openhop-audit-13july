@@ -1,0 +1,22 @@
+# BUG-103: The command-response waiter captures unrelated or wrong-sender messages
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/node/handlers/text.py b/src/openhop_core/node/handlers/text.py
+@@
+-        if self.command_response_callback:
+-            self.command_response_callback(decoded_msg, matched_contact)
+-            return HandlerResult.consumed()
++        if txt_type == TXT_TYPE_CLI_DATA:
++            waiter = self._command_waiters.pop(sender_pubkey, None)
++            if waiter is not None:
++                waiter.set_result(decoded_msg)
++                return HandlerResult.consumed()
+ diff --git a/src/openhop_core/companion/base_send.py b/src/openhop_core/companion/base_send.py
+@@
+-        text_handler.set_command_response_callback(_response_cb)
++        response_future = text_handler.register_command_waiter(pub_key)
+@@
+-            text_handler.set_command_response_callback(None)
++            text_handler.remove_command_waiter(pub_key, response_future)

@@ -1,0 +1,17 @@
+# BUG-118: CLI command retries can execute administrative actions again
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/repeater/handler_helpers/text.py b/repeater/handler_helpers/text.py
+@@
+                 if txt_type == TXT_TYPE_CLI_DATA:
++                    sender_timestamp = packet.decrypted["sender_timestamp"]
++                    async with sender_client.command_lock:
++                        if sender_timestamp < sender_client.last_timestamp:
++                            return RoomMessageDecision.reject()
++                        is_retry = sender_timestamp == sender_client.last_timestamp
++                        sender_client.last_timestamp = sender_timestamp
++                        if is_retry:
++                            return RoomMessageDecision.accept(execute=False)
+                     reply = room_server.cli.handle_command(...)

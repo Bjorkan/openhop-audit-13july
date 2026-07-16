@@ -1,0 +1,9 @@
+# BUG-115: Authenticated request replies wait 500 ms instead of 300 ms
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/node/handlers/protocol_request.py b/src/openhop_core/node/handlers/protocol_request.py
+@@
+-SERVER_RESPONSE_DELAY_MS = 500
++SERVER_RESPONSE_DELAY_MS = 300

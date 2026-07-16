@@ -1,0 +1,15 @@
+# BUG-109: Room-server read-only clients can create posts
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/repeater/handler_helpers/text.py b/repeater/handler_helpers/text.py
+@@
+                 # NOT a CLI command - store as regular room post
++                if sender_client is None:
++                    return RoomMessageDecision.reject()
++                role = sender_client.permissions & PERM_ACL_ROLE_MASK
++                if role == PERM_ACL_GUEST:
++                    logger.info("Read-only room client attempted to post")
++                    return RoomMessageDecision.reject(send_ack=False)
+                 success = await room_server.add_post(...)

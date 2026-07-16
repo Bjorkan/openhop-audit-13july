@@ -1,0 +1,18 @@
+# BUG-102: Repeater pushes non-zero-hop and non-discovery CONTROL packets to companions
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/repeater/packet_router.py b/repeater/packet_router.py
+@@
+-            deliver = getattr(self.daemon, "deliver_control_data", None)
+-            if deliver:
++            deliver = getattr(self.daemon, "deliver_control_data", None)
++            deliver_locally = (
++                packet.is_route_direct()
++                and bool(packet.payload)
++                and bool(packet.payload[0] & 0x80)
++                and packet.get_path_hash_count() == 0
++            )
++            if deliver and deliver_locally:
+                 await deliver(snr, rssi, path_len, path_bytes, payload_bytes)

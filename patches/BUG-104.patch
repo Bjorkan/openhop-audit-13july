@@ -1,0 +1,13 @@
+# BUG-104: CMD_ADD_UPDATE_CONTACT rejects the valid 35-byte minimum body
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/companion/frame_server/commands_contacts.py b/src/openhop_core/companion/frame_server/commands_contacts.py
+@@
+-        if len(data) < 36:
++        # Command byte has already been stripped. Mandatory body is
++        # pubkey(32) + type(1) + flags(1) + out_path_len(1).
++        if len(data) < 35:
+             self._write_err(ERR_CODE_ILLEGAL_ARG)
+             return
