@@ -2,34 +2,29 @@
 
 ## Scope and method
 
-This follow-up continued the complete source-level comparison of OpenHop Core and OpenHop Repeater against the supplied official MeshCore snapshot. The previous 317-file inventory remained the baseline and every existing finding was rechecked while the review was extended through companion command edge cases, KISS modem negotiation, authenticated repeater requests, TRACE routing, room-server synchronization, byte-preservation behavior, command minimum lengths, encoded path metadata and cross-room transmission serialization.
+The original full differential audit and deeper continuation remain the basis of the 100 numbered reports. This update reviews every changed file in the 8-commit Core range `9ea7269..41b6201` and the 11-commit Repeater range `6aafa7f..dd6dfce` against the unchanged official MeshCore reference. All active findings and every archived correction were rechecked where the changed primitives could affect them.
 
-The review used both automated inventories and manual source tracing:
+The detailed changed-file disposition is recorded in [NEW-COMMITS-REVIEW.md](NEW-COMMITS-REVIEW.md), and the complete inventory remains in [FILE-REVIEW-MATRIX.md](FILE-REVIEW-MATRIX.md).
 
-1. Re-read every protocol-relevant Python source file and its official C/C++ counterpart in the existing file matrix.
-2. Compared every companion command branch, minimum length, optional field, response count and serialized limit.
-3. Traced radio configuration capabilities from SELF_INFO through mutation handlers and backend application.
-4. Compared KISS request/response IDs and receive delivery with signal metadata both enabled and disabled.
-5. Re-audited TRACE hash-width handling, timeout hints and low-level TX priority propagation.
-6. Replayed room-server post insertion, delivery, ACK and sync-watermark state transitions.
-7. Compared authenticated repeater REQ handler registration against the official status, telemetry, ACL, neighbours and owner-info request set.
-8. Rechecked all archived fixed findings for regression and applied maintainer decisions to intentional host-side policy differences.
-9. Ran the complete available Core and Repeater test suites and focused deterministic reproductions.
+## Current snapshot result
 
-The file-level disposition is recorded in [FILE-REVIEW-MATRIX.md](FILE-REVIEW-MATRIX.md). Focused executable checks are summarized in [REPRODUCTION-CHECKS.md](REPRODUCTION-CHECKS.md).
+- **61** reports are fully fixed or fully implemented in `archive/findings/`.
+- **4** active findings are partially fixed: BUG-022, BUG-054, BUG-081 and BUG-082.
+- **35** active findings are not fixed.
+- **0** numbered reports currently remain in the intentional-divergence category.
+- BUG-002, BUG-023, BUG-048 and BUG-060 were completed by the new commit ranges.
+- No previously fixed report regressed.
+- No new numbered report was required for the reviewed changes.
 
-## Snapshot result
+## BUG-023 implementation after the maintainer clarification
 
-- **57** defect findings remain fully fixed in `archive/findings/`.
-- **1** numbered report, BUG-023, is now archived as an intentional routing-policy divergence under evaluation.
-- **5** active findings remain partially fixed: BUG-002, BUG-022, BUG-048, BUG-054 and BUG-060.
-- **37** active findings are not fixed.
-- **20** additional unintentional differences were confirmed in this deeper follow-up.
-- No fully fixed archived finding regressed in the supplied snapshots.
+RightUp previously explained that neighbour-link scoring was intentionally observational while data was collected. The new snapshots preserve that bounded reporting feature and additionally implement MeshCore’s disabled-by-default reception-quality flood hold in the Core dispatcher, wired through Repeater configuration. BUG-023 is therefore no longer merely an accepted policy divergence; its original mismatch is absent.
 
-## Maintainer clarification applied to BUG-023
+## Tests
 
-RightUp clarified that OpenHop deliberately uses a separately designed, MeshCore-inspired neighbour score and report. Like official MeshCore, reception-quality routing is disabled by default. The score is intentionally observational while real data is collected, and no decision has yet been made about allowing it to influence flood forwarding. BUG-023 has therefore been moved to `archive/intentional/` and is excluded from active-defect counts.
+- OpenHop Core: `1182 passed`.
+- OpenHop Repeater: `1193 passed, 20 subtests passed`.
+- Targeted changed paths: `259 Core + 440 Repeater passed`.
 
 ## Newly confirmed in this deeper follow-up
 

@@ -13,7 +13,7 @@
 
 When delivering a stored room post, OpenHop generates a fresh wall-clock timestamp and fixes the two attempt bits to zero. Official MeshCore sends the original stored post timestamp and randomizes the low attempt bits for each push. OpenHop clients therefore see delivery time instead of post time, and retries can recreate the same plaintext, packet hash and expected ACK within the same second.
 
-**Current status: 🔴 Not fixed.** Confirmed in the supplied Core snapshot [`9ea7269`](https://github.com/openhop-dev/openhop_core/commit/9ea7269a7e7e903fe433b1f952a4026fe3dcc81b) and Repeater snapshot [`6aafa7f`](https://github.com/openhop-dev/openhop_repeater/commit/6aafa7fe991b5b3199b18149f84417f8522d94b2), as applicable. The complete existing test suites pass, but no implementation or regression test covers this MeshCore compatibility path.
+**Current status: 🔴 Not fixed.** Rechecked against current Core head [`41b6201`](https://github.com/openhop-dev/openhop_core/commit/41b6201ea2e3cb9b8468b0eb80c9e22fdad4a6c8) and Repeater head [`dd6dfce`](https://github.com/openhop-dev/openhop_repeater/commit/dd6dfce9e89fab76967d91e202d8e47217c30474), as applicable. The mismatch remains present; the new commit range does not complete this MeshCore compatibility path.
 
 ## What happens
 

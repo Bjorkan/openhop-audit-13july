@@ -1,19 +1,19 @@
 # BUG-002 — Packet payload limit is larger than MeshCore's wire limit
 
-[← Active finding list](../README.md#active-findings)
+[← Archived finding list](../README.md#archived-findings)
 
 | Field | Value |
 |---|---|
 | Severity | **Medium** |
 | Area | Packet format |
 | Affected components | OpenHop Core |
-| Status | Confirmed from the supplied source snapshots |
+| Status | Fully fixed in the current supplied snapshots |
 
 ## TL;DR
 
 OpenHop allows payloads up to 256 bytes even though the included MeshCore packet buffer supports 184 payload bytes. OpenHop can construct packets that cannot exist in MeshCore's packet representation. To fix it, use 184 as the protocol payload ceiling and enforce it at packet creation, deserialization, and every command that queues a packet. Keep transport framing limits separate from packet payload limits.
 
-**Current status: 🟡 Partially fixed.** The wire ceiling is now 184 bytes and deserialization enforces it, but the generic packet constructor still assigns an arbitrary payload length without validation and serialization does not add a final ceiling check. This leaves construction paths outside the individually hardened commands able to exceed the limit; compare [Packet.read_from](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/protocol/packet.py#L462-L479) with [PacketBuilder._create_packet](https://github.com/openhop-dev/openhop_core/blob/fix/all-the-things-core/src/openhop_core/protocol/packet_builder.py#L77-L83). The implemented limit and decode-side checks were introduced in [`bd3b4bb` — `fix(constants): update MAX_PACKET_PAYLOAD and adjust related calculations`](https://github.com/openhop-dev/openhop_core/commit/bd3b4bb). Rechecked against the supplied Core snapshot [`9ea7269`](https://github.com/openhop-dev/openhop_core/commit/9ea7269a7e7e903fe433b1f952a4026fe3dcc81b), which is a version-only bump after the audited functional commit [`9355d08`](https://github.com/openhop-dev/openhop_core/commit/9355d08e21423886a17979c0d8defb891f5d9d72), and the supplied Repeater snapshot [`6aafa7f`](https://github.com/openhop-dev/openhop_repeater/commit/6aafa7fe991b5b3199b18149f84417f8522d94b2); no regression was found.
+**Current status: ✅ Fully fixed.** Core now enforces the official 184-byte payload ceiling at generic packet construction, serialization, and deserialization. `PacketBuilder._create_packet()` validates before assigning the payload, while `Packet.write_to()` and `Packet.read_from()` independently enforce the same bound; exact-limit and oversize regression tests cover all three paths. See [`packet_builder.py` L76–L83](https://github.com/openhop-dev/openhop_core/blob/41b6201ea2e3cb9b8468b0eb80c9e22fdad4a6c8/src/openhop_core/protocol/packet_builder.py#L76-L83) and [`packet.py` L364–L468](https://github.com/openhop-dev/openhop_core/blob/41b6201ea2e3cb9b8468b0eb80c9e22fdad4a6c8/src/openhop_core/protocol/packet.py#L364-L468). The completed implementation is present at Core head [`41b6201`](https://github.com/openhop-dev/openhop_core/commit/41b6201ea2e3cb9b8468b0eb80c9e22fdad4a6c8); Repeater head [`dd6dfce`](https://github.com/openhop-dev/openhop_repeater/commit/dd6dfce9e89fab76967d91e202d8e47217c30474) introduces no regression.
 
 ## What happens
 

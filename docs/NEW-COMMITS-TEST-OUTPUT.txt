@@ -1,0 +1,118 @@
+Core full suite
+===============
+........................................................................ [  6%]
+........................................................................ [ 12%]
+........................................................................ [ 18%]
+........................................................................ [ 24%]
+........................................................................ [ 30%]
+........................................................................ [ 36%]
+........................................................................ [ 42%]
+........................................................................ [ 48%]
+........................................................................ [ 54%]
+........................................................................ [ 60%]
+........................................................................ [ 67%]
+........................................................................ [ 73%]
+........................................................................ [ 79%]
+........................................................................ [ 85%]
+........................................................................ [ 91%]
+........................................................................ [ 97%]
+..............................                                           [100%]
+
+Repeater full suite
+===================
+........................................................................ [  6%]
+........................................................................ [ 12%]
+........................................................................ [ 18%]
+........................................................................ [ 24%]
+........................................................................ [ 30%]
+........................................................................ [ 36%]
+........................................................................ [ 42%]
+........................................................................ [ 48%]
+........................................................................ [ 54%]
+........................................................................ [ 60%]
+........................................................................ [ 66%]
+........................................................................ [ 72%]
+............................................................................................................................ [ 82%]
+........................................................................ [ 88%]
+........................................................................ [ 94%]
+.............................................................            [100%]
+=============================== warnings summary ===============================
+tests/test_engine.py::TestNeighbourLinkObservation::test_first_sample_initializes_ewma_directly
+  tests/test_engine.py:1327: PytestWarning: The test <Function test_first_sample_initializes_ewma_directly> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_first_sample_initializes_ewma_directly(self, handler):
+
+tests/test_engine.py::TestNeighbourLinkObservation::test_later_samples_apply_configured_ewma_alpha
+  tests/test_engine.py:1336: PytestWarning: The test <Function test_later_samples_apply_configured_ewma_alpha> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_later_samples_apply_configured_ewma_alpha(self, handler):
+
+tests/test_engine.py::TestNeighbourLinkObservation::test_duplicate_samples_increment_duplicate_sample_count
+  tests/test_engine.py:1348: PytestWarning: The test <Function test_duplicate_samples_increment_duplicate_sample_count> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_duplicate_samples_increment_duplicate_sample_count(self, handler):
+
+tests/test_engine.py::TestNeighbourLinkObservation::test_different_path_hash_widths_do_not_merge
+  tests/test_engine.py:1357: PytestWarning: The test <Function test_different_path_hash_widths_do_not_merge> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_different_path_hash_widths_do_not_merge(self, handler):
+
+tests/test_engine.py::TestNeighbourLinkObservation::test_link_state_is_bounded
+  tests/test_engine.py:1369: PytestWarning: The test <Function test_link_state_is_bounded> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_link_state_is_bounded(self, handler):
+
+tests/test_engine.py::TestNeighbourLinkObservation::test_expired_links_are_removed_using_monotonic_time
+  tests/test_engine.py:1383: PytestWarning: The test <Function test_expired_links_are_removed_using_monotonic_time> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_expired_links_are_removed_using_monotonic_time(self, handler):
+
+tests/test_engine.py::TestNeighbourLinkObservation::test_snapshot_returns_plain_data_not_live_mapping
+  tests/test_engine.py:1396: PytestWarning: The test <Function test_snapshot_returns_plain_data_not_live_mapping> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_snapshot_returns_plain_data_not_live_mapping(self, handler):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1193 passed, 7 warnings, 20 subtests passed in 10.59s
+
+Core targeted changed paths
+===========================
+........................................................................ [ 27%]
+........................................................................ [ 55%]
+........................................................................ [ 83%]
+...........................................                              [100%]
+259 passed in 2.77s
+
+Repeater targeted changed paths
+===============================
+........................................................................ [ 16%]
+........................................................................ [ 32%]
+........................................................................ [ 49%]
+........................................................................ [ 65%]
+........................................................................ [ 81%]
+........................................................................ [ 98%]
+........                                                                 [100%]
+=============================== warnings summary ===============================
+tests/test_engine.py::TestNeighbourLinkObservation::test_first_sample_initializes_ewma_directly
+  tests/test_engine.py:1327: PytestWarning: The test <Function test_first_sample_initializes_ewma_directly> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_first_sample_initializes_ewma_directly(self, handler):
+
+tests/test_engine.py::TestNeighbourLinkObservation::test_later_samples_apply_configured_ewma_alpha
+  tests/test_engine.py:1336: PytestWarning: The test <Function test_later_samples_apply_configured_ewma_alpha> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_later_samples_apply_configured_ewma_alpha(self, handler):
+
+tests/test_engine.py::TestNeighbourLinkObservation::test_duplicate_samples_increment_duplicate_sample_count
+  tests/test_engine.py:1348: PytestWarning: The test <Function test_duplicate_samples_increment_duplicate_sample_count> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_duplicate_samples_increment_duplicate_sample_count(self, handler):
+
+tests/test_engine.py::TestNeighbourLinkObservation::test_different_path_hash_widths_do_not_merge
+  tests/test_engine.py:1357: PytestWarning: The test <Function test_different_path_hash_widths_do_not_merge> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_different_path_hash_widths_do_not_merge(self, handler):
+
+tests/test_engine.py::TestNeighbourLinkObservation::test_link_state_is_bounded
+  tests/test_engine.py:1369: PytestWarning: The test <Function test_link_state_is_bounded> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_link_state_is_bounded(self, handler):
+
+tests/test_engine.py::TestNeighbourLinkObservation::test_expired_links_are_removed_using_monotonic_time
+  tests/test_engine.py:1383: PytestWarning: The test <Function test_expired_links_are_removed_using_monotonic_time> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_expired_links_are_removed_using_monotonic_time(self, handler):
+
+tests/test_engine.py::TestNeighbourLinkObservation::test_snapshot_returns_plain_data_not_live_mapping
+  tests/test_engine.py:1396: PytestWarning: The test <Function test_snapshot_returns_plain_data_not_live_mapping> is marked with '@pytest.mark.asyncio' but it is not an async function. Please remove the asyncio mark. If the test is not marked explicitly, check for global marks applied via 'pytestmark'.
+    def test_snapshot_returns_plain_data_not_live_mapping(self, handler):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+440 passed, 7 warnings in 2.06s

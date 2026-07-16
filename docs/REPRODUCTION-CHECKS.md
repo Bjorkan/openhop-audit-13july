@@ -13,8 +13,8 @@ These focused checks were executed against the exact supplied source snapshots i
 | BUG-075 | Send a packet successfully, then inspect the dispatcher seen table. | Send succeeded; the outbound packet hash was not tracked. |
 | BUG-078 | Store a 31-character name made from two-byte UTF-8 characters. | The accepted value occupied 62 wire bytes. |
 | BUG-080 | Read the room-server post-length constant. | `160` characters rather than the 151-byte payload budget. |
-| BUG-081 | Submit a valid 11-byte radio command with `repeat=1`. | The command returned OK but left `client_repeat` unchanged; 100 MHz also passed the parser. |
-| BUG-082 | Advertise a 14 dBm backend maximum, then request 22 dBm. | The command-level hardcoded range accepted the value instead of rejecting it against 14 dBm. |
+| BUG-081 | Submit radio settings at the new validation boundaries and include `repeat=1`. | BW/SF/CR and gross frequency errors are rejected, but 100 MHz still passes and `client_repeat` remains unchanged. |
+| BUG-082 | Advertise a 14 dBm backend maximum, inspect SELF_INFO, then request 22 dBm. | SELF_INFO now reports 14 dBm correctly, but the command-level generic range still accepts 22 dBm. |
 | BUG-083 | Submit the three-reserved-byte self-telemetry payload. | The handler returned ILLEGAL_ARG and emitted no telemetry push. |
 | BUG-084 | Submit GET_CHANNEL with no index. | The handler emitted 40 CHANNEL_INFO frames. |
 | BUG-085 | Trace RAW_PACKET priority into the low-level send call. | The parsed priority was not present in `_send_packet()`. |
@@ -38,7 +38,11 @@ BUG-067, BUG-069, BUG-071, BUG-073, BUG-074, BUG-076, BUG-077 and BUG-079 are es
 
 ## Full-suite baseline
 
-- OpenHop Core: **1,110 passed**.
-- OpenHop Repeater: **1,136 passed, 20 subtests passed**.
+- OpenHop Core: **1,182 passed**.
+- OpenHop Repeater: **1,193 passed, 20 subtests passed**.
 
 Passing existing tests does not invalidate these checks. The findings cover compatibility assertions, command forms, race windows and protocol edge cases that are not represented by the current suites.
+
+## New commit-range verification
+
+The full transition checks for BUG-002, BUG-023, BUG-048 and BUG-060 are covered by the newly added project tests and the 259/440 changed-path test runs summarized in [NEW-COMMITS-REVIEW.md](NEW-COMMITS-REVIEW.md).

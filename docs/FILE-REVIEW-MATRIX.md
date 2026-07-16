@@ -1,6 +1,6 @@
 # File-by-file review matrix
 
-This matrix records every source file in the three audit inventories. “No additional deviation” means the file was read in context and did not independently establish a new unintentional MeshCore compatibility difference beyond any linked finding. Hardware/UI reference files were reviewed for protocol constants, callbacks, frame layouts and behavior relevant to OpenHop; platform rendering details are intentionally out of scope.
+This matrix records every source file in the three audit inventories. It was rechecked against Core `41b6201` and Repeater `dd6dfce` after reviewing all 19 commits in the supplied base-to-head ranges. “No additional deviation” means the file was read in context and did not independently establish a new unintentional MeshCore compatibility difference beyond any linked finding. Hardware/UI reference files were reviewed for protocol constants, callbacks, frame layouts and behavior relevant to OpenHop; platform rendering details are intentionally out of scope.
 
 ## Core
 
@@ -19,6 +19,7 @@ This matrix records every source file in the three audit inventories. “No addi
 | `src/openhop_core/companion/companion_base.py` | Reviewed; no additional unintentional deviation identified. | — |
 | `src/openhop_core/companion/companion_bridge.py` | Reviewed; no additional unintentional deviation identified. | — |
 | `src/openhop_core/companion/companion_radio.py` | Reviewed; no additional unintentional deviation identified. | — |
+| `src/openhop_core/companion/radio_capabilities.py` | Reviewed; centralizes backend maximum-TX-power discovery. It improves BUG-082 but does not enforce the limit in the command handler. | [BUG-082](../findings/BUG-082-cmd-set-radio-tx-power-ignores-the-advertised-hardware-limit.md) |
 | `src/openhop_core/companion/constants.py` | Reviewed; contains code relevant to one or more active findings. | [BUG-069](../findings/BUG-069-has-connection-and-get-tuning-params-are-advertised-but-unimplemented.md), [BUG-098](../findings/BUG-098-protocol-level-13-is-reported-while-reboot-device-pin-and-factory-reset-commands-are-absent.md) |
 | `src/openhop_core/companion/contact_store.py` | Reviewed; no additional unintentional deviation identified. | — |
 | `src/openhop_core/companion/frame_server/__init__.py` | Reviewed; no additional unintentional deviation identified. | — |
@@ -58,7 +59,7 @@ This matrix records every source file in the three audit inventories. “No addi
 | `src/openhop_core/hardware/usb_radio.py` | Reviewed; no additional unintentional deviation identified. | — |
 | `src/openhop_core/hardware/wsradio.py` | Reviewed; no additional unintentional deviation identified. | — |
 | `src/openhop_core/node/__init__.py` | Reviewed; no additional unintentional deviation identified. | — |
-| `src/openhop_core/node/dispatcher.py` | Reviewed; contains code relevant to one or more active findings and one intentional divergence. | [BUG-066](../findings/BUG-066-the-generic-own-packet-filter-drops-valid-packets-on-one-byte-collisions.md), [BUG-068](../findings/BUG-068-timed-out-dispatcher-ack-waiters-are-never-removed.md), [BUG-072](../findings/BUG-072-malformed-frame-blacklist-storage-is-permanent-and-unbounded.md), [BUG-075](../findings/BUG-075-outbound-packets-are-not-recorded-in-the-dispatcher-seen-table.md), [BUG-076](../findings/BUG-076-concurrent-receive-tasks-race-replay-state-and-reorder-protocol-handling.md), [BUG-077](../findings/BUG-077-standalone-core-lacks-meshcore-s-rolling-transmit-airtime-budget.md), [BUG-023](../archive/intentional/findings/BUG-023-flood-packets-bypass-meshcore-s-reception-quality-delay.md) |
+| `src/openhop_core/node/dispatcher.py` | Reviewed; contains code relevant to active findings and the now-fixed reception-delay report. | [BUG-066](../findings/BUG-066-the-generic-own-packet-filter-drops-valid-packets-on-one-byte-collisions.md), [BUG-068](../findings/BUG-068-timed-out-dispatcher-ack-waiters-are-never-removed.md), [BUG-072](../findings/BUG-072-malformed-frame-blacklist-storage-is-permanent-and-unbounded.md), [BUG-075](../findings/BUG-075-outbound-packets-are-not-recorded-in-the-dispatcher-seen-table.md), [BUG-076](../findings/BUG-076-concurrent-receive-tasks-race-replay-state-and-reorder-protocol-handling.md), [BUG-077](../findings/BUG-077-standalone-core-lacks-meshcore-s-rolling-transmit-airtime-budget.md), [BUG-023](../archive/findings/BUG-023-flood-packets-bypass-meshcore-s-reception-quality-delay.md) |
 | `src/openhop_core/node/events/__init__.py` | Reviewed; no additional unintentional deviation identified. | — |
 | `src/openhop_core/node/events/event_service.py` | Reviewed; no additional unintentional deviation identified. | — |
 | `src/openhop_core/node/events/events.py` | Reviewed; no additional unintentional deviation identified. | — |
@@ -86,10 +87,10 @@ This matrix records every source file in the three audit inventories. “No addi
 | `src/openhop_core/protocol/crypto.py` | Reviewed; no additional unintentional deviation identified. | — |
 | `src/openhop_core/protocol/identity.py` | Reviewed; contains code relevant to one or more active findings. | [BUG-070](../findings/BUG-070-identity-addresses-hash-the-public-key-instead-of-using-its-prefix.md) |
 | `src/openhop_core/protocol/modem_identity.py` | Reviewed; contains code relevant to one or more active findings. | [BUG-070](../findings/BUG-070-identity-addresses-hash-the-public-key-instead-of-using-its-prefix.md) |
-| `src/openhop_core/protocol/packet.py` | Reviewed; contains code relevant to one or more active findings. | [BUG-002](../findings/BUG-002-packet-payload-limit-is-larger-than-meshcore-s-wire-limit.md), [BUG-065](../findings/BUG-065-reserved-payload-version-1-is-accepted-as-a-supported-wire-format.md) |
-| `src/openhop_core/protocol/packet_builder.py` | Reviewed; contains code relevant to one or more active findings. | [BUG-002](../findings/BUG-002-packet-payload-limit-is-larger-than-meshcore-s-wire-limit.md), [BUG-067](../findings/BUG-067-advert-timestamps-share-the-global-unique-request-clock-and-can-run-into-the-future.md) |
+| `src/openhop_core/protocol/packet.py` | Reviewed; contains code relevant to one or more active findings. | [BUG-002](../archive/findings/BUG-002-packet-payload-limit-is-larger-than-meshcore-s-wire-limit.md), [BUG-065](../findings/BUG-065-reserved-payload-version-1-is-accepted-as-a-supported-wire-format.md) |
+| `src/openhop_core/protocol/packet_builder.py` | Reviewed; contains code relevant to one or more active findings. | [BUG-002](../archive/findings/BUG-002-packet-payload-limit-is-larger-than-meshcore-s-wire-limit.md), [BUG-067](../findings/BUG-067-advert-timestamps-share-the-global-unique-request-clock-and-can-run-into-the-future.md) |
 | `src/openhop_core/protocol/packet_filter.py` | Reviewed; contains code relevant to one or more active findings. | [BUG-072](../findings/BUG-072-malformed-frame-blacklist-storage-is-permanent-and-unbounded.md) |
-| `src/openhop_core/protocol/packet_utils.py` | Reviewed; contains code relevant to one or more active findings. | [BUG-048](../findings/BUG-048-lora-airtime-calculations-use-incompatible-coding-rate-representations.md) |
+| `src/openhop_core/protocol/packet_utils.py` | Reviewed; contains code relevant to one or more active findings. | [BUG-048](../archive/findings/BUG-048-lora-airtime-calculations-use-incompatible-coding-rate-representations.md) |
 | `src/openhop_core/protocol/region_map.py` | Reviewed; no additional unintentional deviation identified. | — |
 | `src/openhop_core/protocol/transport_keys.py` | Reviewed; no additional unintentional deviation identified. | — |
 | `src/openhop_core/protocol/utils.py` | Reviewed; no additional unintentional deviation identified. | — |
@@ -99,11 +100,11 @@ This matrix records every source file in the three audit inventories. “No addi
 | File | Review result | Related findings |
 |---|---|---|
 | `repeater/__init__.py` | Reviewed; no additional unintentional deviation identified. | — |
-| `repeater/airtime.py` | Reviewed; contains code relevant to one or more active findings. | [BUG-048](../findings/BUG-048-lora-airtime-calculations-use-incompatible-coding-rate-representations.md) |
+| `repeater/airtime.py` | Reviewed; contains code relevant to one or more active findings. | [BUG-048](../archive/findings/BUG-048-lora-airtime-calculations-use-incompatible-coding-rate-representations.md) |
 | `repeater/companion/__init__.py` | Reviewed; no additional unintentional deviation identified. | — |
 | `repeater/companion/bridge.py` | Reviewed; contains code relevant to one or more active findings. | [BUG-054](../findings/BUG-054-unsupported-radio-changes-report-success-for-virtual-companions.md) |
 | `repeater/companion/constants.py` | Reviewed; no additional unintentional deviation identified. | — |
-| `repeater/companion/frame_server.py` | Reviewed; contains code relevant to one or more active findings. | [BUG-060](../findings/BUG-060-the-sqlite-queue-loses-binary-payload-signed-sender-and-signal-metadata.md) |
+| `repeater/companion/frame_server.py` | Reviewed; contains code relevant to one or more active findings. | [BUG-060](../archive/findings/BUG-060-the-sqlite-queue-loses-binary-payload-signed-sender-and-signal-metadata.md) |
 | `repeater/companion/identity_resolve.py` | Reviewed; no additional unintentional deviation identified. | — |
 | `repeater/companion/utils.py` | Reviewed; no additional unintentional deviation identified. | — |
 | `repeater/config.py` | Reviewed; no additional unintentional deviation identified. | — |
@@ -114,7 +115,7 @@ This matrix records every source file in the three audit inventories. “No addi
 | `repeater/data_acquisition/hardware_stats.py` | Reviewed; no additional unintentional deviation identified. | — |
 | `repeater/data_acquisition/mqtt_handler.py` | Reviewed; no additional unintentional deviation identified. | — |
 | `repeater/data_acquisition/rrdtool_handler.py` | Reviewed; no additional unintentional deviation identified. | — |
-| `repeater/data_acquisition/sqlite_handler.py` | Reviewed; contains code relevant to one or more active findings. | [BUG-060](../findings/BUG-060-the-sqlite-queue-loses-binary-payload-signed-sender-and-signal-metadata.md), [BUG-092](../findings/BUG-092-posting-to-a-room-can-skip-older-unsynced-messages-for-the-author.md) |
+| `repeater/data_acquisition/sqlite_handler.py` | Reviewed; contains code relevant to one or more active findings. | [BUG-060](../archive/findings/BUG-060-the-sqlite-queue-loses-binary-payload-signed-sender-and-signal-metadata.md), [BUG-092](../findings/BUG-092-posting-to-a-room-can-skip-older-unsynced-messages-for-the-author.md) |
 | `repeater/data_acquisition/storage_collector.py` | Reviewed; no additional unintentional deviation identified. | — |
 | `repeater/data_acquisition/storage_utils.py` | Reviewed; no additional unintentional deviation identified. | — |
 | `repeater/data_acquisition/websocket_handler.py` | Reviewed; no additional unintentional deviation identified. | — |
@@ -134,6 +135,7 @@ This matrix records every source file in the three audit inventories. “No addi
 | `repeater/keygen.py` | Reviewed; no additional unintentional deviation identified. | — |
 | `repeater/local_cli.py` | Reviewed; no additional unintentional deviation identified. | — |
 | `repeater/main.py` | Reviewed; no additional unintentional deviation identified. | — |
+| `repeater/neighbour_links.py` | Reviewed; bounded, monotonic-time observational neighbour metrics only. It does not alter forwarding, deduplication, route selection or packet acceptance. | — |
 | `repeater/packet_router.py` | Reviewed; contains code relevant to one or more active findings. | [BUG-022](../findings/BUG-022-multipart-packets-and-routed-acks-lack-their-special-forwarding-paths.md) |
 | `repeater/policy_engine.py` | Reviewed; no additional unintentional deviation identified. | — |
 | `repeater/presets/__init__.py` | Reviewed; no additional unintentional deviation identified. | — |

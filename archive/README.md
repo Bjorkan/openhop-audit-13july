@@ -2,13 +2,15 @@
 
 This directory preserves reports that are no longer active defects.
 
-## Fully fixed defects
+## Fully fixed or fully implemented reports
 
-The **57** reports in [`archive/findings/`](findings/) are fully fixed in the supplied OpenHop snapshots. Their historical LLM-generated implementation sketches are in [`archive/patches/`](patches/).
+The **61** reports in [`archive/findings/`](findings/) are fully fixed or, for former policy report BUG-023, fully implemented in the supplied OpenHop snapshots. Their historical LLM-generated implementation sketches are in [`archive/patches/`](patches/).
+
+BUG-023 was previously separated as an intentional routing-policy divergence. Core [`41b6201`](https://github.com/openhop-dev/openhop_core/commit/41b6201ea2e3cb9b8468b0eb80c9e22fdad4a6c8) and Repeater [`dd6dfce`](https://github.com/openhop-dev/openhop_repeater/commit/dd6dfce9e89fab76967d91e202d8e47217c30474) now implement MeshCore’s disabled-by-default reception-quality flood hold, so it has been moved into the ordinary fixed archive.
 
 ## Intentional divergences
 
-[`archive/intentional/`](intentional/) contains numbered reports whose behavior is deliberately different and is not currently classified as a defect. BUG-023 is stored there after the maintainer clarified that reception-quality scoring is observational and its use in flood routing is intentionally deferred pending real-world data. Historical sketches in this directory are retained only for provenance and are not recommended changes.
+There are no numbered reports currently stored as intentional divergences. The retained [`archive/intentional/`](intentional/) directory is empty and exists only to preserve the audit taxonomy.
 
 - Complete active and archived tables: [main README](../README.md)
 - Intentional-difference policy: [docs/INTENTIONAL-DIFFERENCES.md](../docs/INTENTIONAL-DIFFERENCES.md)

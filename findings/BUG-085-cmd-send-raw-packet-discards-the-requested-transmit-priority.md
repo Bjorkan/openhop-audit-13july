@@ -13,7 +13,7 @@
 
 The companion handler parses RAW_PACKET's priority byte and passes it to the bridge, but the low-level implementation explicitly ignores it. Every raw packet enters the ordinary send path instead of the requested MeshCore priority queue.
 
-**Current status: 🔴 Not fixed.** Confirmed in the supplied Core snapshot [`9ea7269`](https://github.com/openhop-dev/openhop_core/commit/9ea7269a7e7e903fe433b1f952a4026fe3dcc81b) and Repeater snapshot [`6aafa7f`](https://github.com/openhop-dev/openhop_repeater/commit/6aafa7fe991b5b3199b18149f84417f8522d94b2), as applicable. The complete existing test suites pass, but no implementation or regression test covers this MeshCore compatibility path.
+**Current status: 🔴 Not fixed.** Rechecked against current Core head [`41b6201`](https://github.com/openhop-dev/openhop_core/commit/41b6201ea2e3cb9b8468b0eb80c9e22fdad4a6c8) and Repeater head [`dd6dfce`](https://github.com/openhop-dev/openhop_repeater/commit/dd6dfce9e89fab76967d91e202d8e47217c30474), as applicable. The mismatch remains present; the new commit range does not complete this MeshCore compatibility path.
 
 ## What happens
 

@@ -13,7 +13,7 @@
 
 The companion constants expose the official command numbers for `CMD_HAS_CONNECTION` and `CMD_GET_TUNING_PARAMS`, but the frame-server dispatch registry has no handlers for either command. Compatible clients receive the generic unsupported-command response instead of the firmware-defined data.
 
-**Current status: 🔴 Not fixed.** Confirmed in the supplied Core snapshot [`9ea7269`](https://github.com/openhop-dev/openhop_core/commit/9ea7269a7e7e903fe433b1f952a4026fe3dcc81b) and Repeater snapshot [`6aafa7f`](https://github.com/openhop-dev/openhop_repeater/commit/6aafa7fe991b5b3199b18149f84417f8522d94b2), as applicable. The full test suites pass, but no focused implementation or regression test resolves this compatibility difference.
+**Current status: 🔴 Not fixed.** Rechecked against current Core head [`41b6201`](https://github.com/openhop-dev/openhop_core/commit/41b6201ea2e3cb9b8468b0eb80c9e22fdad4a6c8) and Repeater head [`dd6dfce`](https://github.com/openhop-dev/openhop_repeater/commit/dd6dfce9e89fab76967d91e202d8e47217c30474), as applicable. The mismatch remains present; the new commit range does not complete this MeshCore compatibility path.
 
 ## What happens
 

@@ -2,27 +2,38 @@ OpenHop / MeshCore differential audit snapshot
 Generated: 2026-07-16 (Europe/Stockholm)
 
 INPUT ZIP SHA256
-Core      0dbcab422b2d7dc97c405e713a4cdc38336d952bcd359de7eef81d1e8b83b6e6  openhop_core-fix-all-the-things-core(1)(1).zip
-Repeater  19f1d9721f9835d6f1f5a09e3c7280254d64081fee68dd2ca6b717440743c748  openhop_repeater-fix-all-the-things(1).zip
+Core      487396c070036a9dcc2744117fe0d07238a717d5af21b66f4d7bc7e2177090d3  openhop_core-fix-all-the-things-core(2).zip
+Repeater  28886e3b9eada8deab578bc7d833e42fd6b50ad101bba1dc57229123dcd9a167  openhop_repeater-fix-all-the-things(1)(1).zip
 MeshCore  0926b1e465316dafa24899cc5443f66ed717f2a665a0f0871b2dce0b7b9302f5  MeshCore-main(1)(1).zip
-Prior audit 57dc5529bd5bcf68dcf0eaf86f8f79a72feab1c98a6627f89ed13e05eca113ef  openhop-audit-13july-developer-rechecked.zip
+Prior audit 94bd5d61b67c079b4e7bbac7f5a57af6706a473b7c6a8882e61c927e273126d4  openhop-audit-deeper-differential-followup.zip
 
 SOURCE IDENTIFIERS
-Core functional snapshot: 9355d08e21423886a17979c0d8defb891f5d9d72
-Core supplied head:       9ea7269a7e7e903fe433b1f952a4026fe3dcc81b
-Repeater supplied head:   6aafa7fe991b5b3199b18149f84417f8522d94b2
-MeshCore version:         v1.16.0
+Core previous head:       9ea7269a7e7e903fe433b1f952a4026fe3dcc81b
+Core supplied head:       41b6201ea2e3cb9b8468b0eb80c9e22fdad4a6c8
+Core commits reviewed:    8
+Repeater previous head:   6aafa7fe991b5b3199b18149f84417f8522d94b2
+Repeater supplied head:   dd6dfce9e89fab76967d91e202d8e47217c30474
+Repeater commits reviewed: 11
+MeshCore version:         v1.16.0 (unchanged supplied reference)
 
 TEST RESULTS
-Core: 1110 passed
-Repeater: 1136 passed, 20 subtests passed
+Core full suite:       1182 passed
+Repeater full suite:   1193 passed, 20 subtests passed (7 collection-marker warnings)
+Core changed paths:    259 passed
+Repeater changed paths: 440 passed (same 7 marker warnings)
 
-FOLLOW-UP REVIEW
-- BUG-023 reclassified from active defect to intentional divergence based on maintainer clarification.
-- BUG-081 through BUG-094 added after deeper companion/KISS/room/REQ review.
-- No newer supplied source ZIPs were introduced for this follow-up.
+STATUS TRANSITIONS
+- BUG-002: partially fixed -> fully fixed
+- BUG-023: intentional divergence -> fully implemented
+- BUG-048: partially fixed -> fully fixed
+- BUG-060: partially fixed -> fully fixed
+- BUG-081: not fixed -> partially fixed
+- BUG-082: not fixed -> partially fixed
+- BUG-022 and BUG-054 remain partially fixed with revised remaining gaps.
+- No archived finding regressed.
 
-SECOND DEEPER CONTINUATION
-- BUG-095 through BUG-100 added after command-minimum, protocol-capability, encoded-path and cross-room scheduling review.
-- RightUp's BUG-023 clarification remains applied; the neighbour score/report is intentional observational work and not an active defect.
-- No source snapshot was changed during this continuation.
+FINAL CLASSIFICATION
+- 100 numbered reports
+- 61 archived as fully fixed or fully implemented
+- 39 active defects: 4 partially fixed, 35 not fixed
+- 0 current numbered intentional divergences

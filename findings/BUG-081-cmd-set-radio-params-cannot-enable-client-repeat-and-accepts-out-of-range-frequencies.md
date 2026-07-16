@@ -13,7 +13,7 @@
 
 OpenHop parses only the frequency, bandwidth, spreading factor and coding rate fields. It ignores MeshCore's optional `client_repeat` byte, accepts 100–149.999 MHz even though firmware starts at 150 MHz, and returns an empty allowed-repeat-frequency list. The advertised `client_repeat` preference therefore cannot be enabled through the companion protocol and no equivalent packet-forwarding behavior follows from it.
 
-**Current status: 🔴 Not fixed.** Confirmed in the supplied Core snapshot [`9ea7269`](https://github.com/openhop-dev/openhop_core/commit/9ea7269a7e7e903fe433b1f952a4026fe3dcc81b) and Repeater snapshot [`6aafa7f`](https://github.com/openhop-dev/openhop_repeater/commit/6aafa7fe991b5b3199b18149f84417f8522d94b2), as applicable. The complete existing test suites pass, but no implementation or regression test covers this MeshCore compatibility path.
+**Current status: 🟡 Partially fixed.** `CMD_SET_RADIO_PARAMS` now rejects malformed frequency, bandwidth, spreading-factor, and coding-rate values before touching the backend. Two compatibility gaps remain: the lower frequency bound is still 100,000 kHz instead of MeshCore’s 150,000 kHz, and the optional `client_repeat` byte plus allowed-repeat-frequency validation/persistence are still ignored; see [`commands_device.py` L314–L344](https://github.com/openhop-dev/openhop_core/blob/41b6201ea2e3cb9b8468b0eb80c9e22fdad4a6c8/src/openhop_core/companion/frame_server/commands_device.py#L314-L344). Reviewed at Core head [`41b6201`](https://github.com/openhop-dev/openhop_core/commit/41b6201ea2e3cb9b8468b0eb80c9e22fdad4a6c8).
 
 ## What happens
 

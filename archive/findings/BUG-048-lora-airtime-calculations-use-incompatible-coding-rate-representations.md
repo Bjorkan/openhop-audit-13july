@@ -1,19 +1,19 @@
 # BUG-048 — LoRa airtime calculations use incompatible coding-rate representations
 
-[← Active finding list](../README.md#active-findings)
+[← Archived finding list](../README.md#archived-findings)
 
 | Field | Value |
 |---|---|
 | Severity | **High** |
 | Area | Radio timing |
 | Affected components | OpenHop Core |
-| Status | Confirmed from the supplied source snapshots |
+| Status | Fully fixed in the current supplied snapshots |
 
 ## TL;DR
 
 OpenHop stores MeshCore/companion coding rate as denominator 5–8, but two airtime implementations treat it as RadioLib's index 1–4. One clamps every 5–8 value to 4; another multiplies by cr + 4, yielding factors 9–12. To fix it, choose one public representation—5–8 to match the companion protocol—and convert to a 1–4 index only inside formulas that require it.
 
-**Current status: 🟡 Partially fixed.** All reviewed airtime paths now call the same `coding_rate_denominator` normalizer, so legacy index values 1-4 and denominator values 5-8 produce consistent Semtech calculations in Core timing, SX1262 timing, packet utilities, and Repeater airtime. The requested cleanup is still incomplete because the public API deliberately accepts both representations and several estimator formulas remain separately implemented rather than delegating to one shared estimator; see [the shared normalizer](https://github.com/openhop-dev/openhop_core/blob/9355d08e21423886a17979c0d8defb891f5d9d72/src/openhop_core/protocol/packet_utils.py#L22-L42) and [Repeater's use of it](https://github.com/openhop-dev/openhop_repeater/blob/6aafa7fe991b5b3199b18149f84417f8522d94b2/repeater/airtime.py#L55-L66). The improved partial fix is present at Core functional commit [`9355d08`](https://github.com/openhop-dev/openhop_core/commit/9355d08e21423886a17979c0d8defb891f5d9d72) and Repeater merge commit [`6aafa7f`](https://github.com/openhop-dev/openhop_repeater/commit/6aafa7fe991b5b3199b18149f84417f8522d94b2). Rechecked against the supplied Core snapshot [`9ea7269`](https://github.com/openhop-dev/openhop_core/commit/9ea7269a7e7e903fe433b1f952a4026fe3dcc81b), which is a version-only bump after the audited functional commit [`9355d08`](https://github.com/openhop-dev/openhop_core/commit/9355d08e21423886a17979c0d8defb891f5d9d72), and the supplied Repeater snapshot [`6aafa7f`](https://github.com/openhop-dev/openhop_repeater/commit/6aafa7fe991b5b3199b18149f84417f8522d94b2); no regression was found.
+**Current status: ✅ Fully fixed.** Core now provides one RadioLib-compatible `calculate_lora_airtime_ms()` implementation with one coding-rate normalizer and the firmware’s symbol-time LDRO rule. Core timing, SX1262 receive timeout, packet timing, and Repeater duty-cycle/forward-delay calculations all delegate to that estimator; see [`packet_utils.py` L22–L93](https://github.com/openhop-dev/openhop_core/blob/41b6201ea2e3cb9b8468b0eb80c9e22fdad4a6c8/src/openhop_core/protocol/packet_utils.py#L22-L93) and [`airtime.py` L38–L76](https://github.com/openhop-dev/openhop_repeater/blob/dd6dfce9e89fab76967d91e202d8e47217c30474/repeater/airtime.py#L38-L76). Focused airtime vectors and full suites pass at Core [`41b6201`](https://github.com/openhop-dev/openhop_core/commit/41b6201ea2e3cb9b8468b0eb80c9e22fdad4a6c8) and Repeater [`dd6dfce`](https://github.com/openhop-dev/openhop_repeater/commit/dd6dfce9e89fab76967d91e202d8e47217c30474).
 
 ## What happens
 

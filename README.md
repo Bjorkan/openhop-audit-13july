@@ -8,44 +8,49 @@ The audit distinguishes between **protocol defects** and **intentional host-side
 
 | Project | Snapshot | Notes |
 |---|---|---|
-| OpenHop Core | [`9ea7269`](https://github.com/openhop-dev/openhop_core/commit/9ea7269a7e7e903fe433b1f952a4026fe3dcc81b) | Version `1.1.3.dev6`; functional code is unchanged from `9355d08` |
-| OpenHop Repeater | [`6aafa7f`](https://github.com/openhop-dev/openhop_repeater/commit/6aafa7fe991b5b3199b18149f84417f8522d94b2) | Supplied ZIP; later online branch commits were not used as the source of truth |
-| MeshCore | `v1.16.0` snapshot | Official comparison implementation; companion protocol level 13 |
+| OpenHop Core | [`41b6201`](https://github.com/openhop-dev/openhop_core/commit/41b6201ea2e3cb9b8468b0eb80c9e22fdad4a6c8) | Current supplied head; **8 commits** reviewed after `9ea7269` |
+| OpenHop Repeater | [`dd6dfce`](https://github.com/openhop-dev/openhop_repeater/commit/dd6dfce9e89fab76967d91e202d8e47217c30474) | Current supplied head; **11 commits** reviewed after `6aafa7f` |
+| MeshCore | `v1.16.0` snapshot | Unchanged official comparison implementation; companion protocol level 13 |
 
-Exact ZIP hashes are recorded in [AUDIT-SNAPSHOT.txt](AUDIT-SNAPSHOT.txt).
+Exact ZIP hashes and the reviewed commit ranges are recorded in [AUDIT-SNAPSHOT.txt](AUDIT-SNAPSHOT.txt). The per-change assessment is in [NEW-COMMITS-REVIEW.md](docs/NEW-COMMITS-REVIEW.md).
 
 ## Results
 
 | Metric | Count |
 |---|---:|
-| Total audit reports | **100** |
+| Total numbered audit reports | **100** |
 | Confirmed defect findings | **99** |
-| Newly confirmed in the original full pass | **17** |
-| Newly confirmed in this deeper follow-up | **20** |
-| Archived as fully fixed | **57** |
-| Archived intentional divergences | **1** |
-| Active defects | **42** |
-| Active: partially fixed | **5** |
-| Active: not fixed | **37** |
-| Core Python source files reviewed | **87** |
-| Repeater Python source files reviewed | **66** |
+| New reports added in this update | **0** |
+| New Core commits reviewed | **8** |
+| New Repeater commits reviewed | **11** |
+| Archived as fully fixed or fully implemented | **61** |
+| Current intentional-divergence reports | **0** |
+| Active defects | **39** |
+| Active: partially fixed | **4** |
+| Active: not fixed | **35** |
+| Core Python source files reviewed | **88** |
+| Repeater Python source files reviewed | **67** |
 | MeshCore C/C++ and header reference files reviewed | **164** |
-| Protocol-relevant source lines indexed | **95,241** |
-| Core tests | **1,110 passed** |
-| Repeater tests | **1,136 passed + 20 subtests passed** |
+| Protocol-relevant source lines indexed | **95,975** |
+| Core tests | **1,182 passed** |
+| Repeater tests | **1,193 passed + 20 subtests passed** |
+| Targeted changed-path tests | **259 Core + 440 Repeater passed** |
 
-The [file review matrix](docs/FILE-REVIEW-MATRIX.md) records every reviewed source file and the finding IDs associated with it.
-Focused runtime reproductions are recorded in [REPRODUCTION-CHECKS.md](docs/REPRODUCTION-CHECKS.md).
+Status changes in this update:
+
+- BUG-002, BUG-023, BUG-048 and BUG-060 are now fully fixed/implemented and archived.
+- BUG-081 and BUG-082 improved from not fixed to partially fixed.
+- BUG-022 and BUG-054 remain partially fixed with updated remaining gaps.
+- No archived correction regressed.
+
+The [file review matrix](docs/FILE-REVIEW-MATRIX.md) records every reviewed source file and the finding IDs associated with it. Focused runtime reproductions are recorded in [REPRODUCTION-CHECKS.md](docs/REPRODUCTION-CHECKS.md).
 
 ## Active findings
 
 | Finding | Severity | Area | Components | Summary |
 |---|---|---|---|---|
-| 🟡 [BUG-002](findings/BUG-002-packet-payload-limit-is-larger-than-meshcore-s-wire-limit.md) | Medium | Packet format | OpenHop Core | Packet payload limit is larger than MeshCore's wire limit |
 | 🟡 [BUG-022](findings/BUG-022-multipart-packets-and-routed-acks-lack-their-special-forwarding-paths.md) | High | Mesh routing | OpenHop Repeater | Multipart packets and routed ACKs lack their special forwarding paths |
-| 🟡 [BUG-048](findings/BUG-048-lora-airtime-calculations-use-incompatible-coding-rate-representations.md) | High | Radio timing | OpenHop Core | LoRa airtime calculations use incompatible coding-rate representations |
 | 🟡 [BUG-054](findings/BUG-054-unsupported-radio-changes-report-success-for-virtual-companions.md) | Medium | Companion/repeater integration | OpenHop Core, OpenHop Repeater | Unsupported radio changes report success for virtual companions |
-| 🟡 [BUG-060](findings/BUG-060-the-sqlite-queue-loses-binary-payload-signed-sender-and-signal-metadata.md) | High | Repeater companion persistence | OpenHop Repeater | The SQLite queue loses binary payload, signed sender, and signal metadata |
 | 🔴 [BUG-064](findings/BUG-064-the-exported-cipher-mac-size-is-32-bytes-instead-of-2.md) | Low | Protocol constants | OpenHop Core | The exported cipher MAC size is 32 bytes instead of 2 |
 | 🔴 [BUG-065](findings/BUG-065-reserved-payload-version-1-is-accepted-as-a-supported-wire-format.md) | Medium | Packet parsing | OpenHop Core | Reserved payload version 1 is accepted as a supported wire format |
 | 🔴 [BUG-066](findings/BUG-066-the-generic-own-packet-filter-drops-valid-packets-on-one-byte-collisions.md) | High | Receive filtering | OpenHop Core | The generic own-packet filter drops valid packets on one-byte collisions |
@@ -58,13 +63,13 @@ Focused runtime reproductions are recorded in [REPRODUCTION-CHECKS.md](docs/REPR
 | 🔴 [BUG-073](findings/BUG-073-self-info-omits-the-configured-environment-telemetry-bits.md) | Low | Companion SELF_INFO | OpenHop Core | SELF_INFO omits the configured environment telemetry bits |
 | 🔴 [BUG-074](findings/BUG-074-cmd-send-txt-msg-accepts-reserved-text-type-values.md) | Medium | Companion text sending | OpenHop Core | CMD_SEND_TXT_MSG accepts reserved text-type values |
 | 🔴 [BUG-075](findings/BUG-075-outbound-packets-are-not-recorded-in-the-dispatcher-seen-table.md) | High | Loopback suppression | OpenHop Core | Outbound packets are not recorded in the dispatcher seen table |
-| 🔴 [BUG-076](findings/BUG-076-concurrent-receive-tasks-race-replay-state-and-reorder-protocol-handling.md) | High | Receive scheduling | OpenHop Core | Concurrent receive tasks race replay state and reorder protocol handling |
+| 🔴 [BUG-076](findings/BUG-076-concurrent-receive-tasks-race-replay-state-and-reorder-protocol-handling.md) | High | Receive scheduling and REQ replay protection | OpenHop Core | Concurrent receive tasks race replay state and reorder protocol handling |
 | 🔴 [BUG-077](findings/BUG-077-standalone-core-lacks-meshcore-s-rolling-transmit-airtime-budget.md) | High | Transmit scheduling | OpenHop Core | Standalone Core lacks MeshCore’s rolling transmit-airtime budget |
 | 🔴 [BUG-078](findings/BUG-078-companion-node-names-are-limited-by-characters-instead-of-the-31-byte-field.md) | Low | Companion naming | OpenHop Core | Companion node names are limited by characters instead of the 31-byte field |
 | 🔴 [BUG-079](findings/BUG-079-exposed-repeater-cli-maintenance-commands-remain-no-op-stubs.md) | Low | Repeater CLI | OpenHop Repeater | Exposed repeater CLI maintenance commands remain no-op stubs |
 | 🔴 [BUG-080](findings/BUG-080-room-server-post-length-uses-160-characters-instead-of-151-wire-bytes.md) | Medium | Room server messages | OpenHop Repeater | Room-server post length uses 160 characters instead of 151 wire bytes |
-| 🔴 [BUG-081](findings/BUG-081-cmd-set-radio-params-cannot-enable-client-repeat-and-accepts-out-of-range-frequencies.md) | High | Companion radio configuration | OpenHop Core | CMD_SET_RADIO_PARAMS cannot enable client repeat and accepts out-of-range frequencies |
-| 🔴 [BUG-082](findings/BUG-082-cmd-set-radio-tx-power-ignores-the-advertised-hardware-limit.md) | Medium | Companion radio configuration | OpenHop Core | CMD_SET_RADIO_TX_POWER ignores the advertised hardware limit |
+| 🟡 [BUG-081](findings/BUG-081-cmd-set-radio-params-cannot-enable-client-repeat-and-accepts-out-of-range-frequencies.md) | High | Companion radio configuration | OpenHop Core | CMD_SET_RADIO_PARAMS cannot enable client repeat and accepts out-of-range frequencies |
+| 🟡 [BUG-082](findings/BUG-082-cmd-set-radio-tx-power-ignores-the-advertised-hardware-limit.md) | Medium | Companion radio configuration | OpenHop Core | CMD_SET_RADIO_TX_POWER ignores the advertised hardware limit |
 | 🔴 [BUG-083](findings/BUG-083-cmd-send-telemetry-req-rejects-meshcore-s-self-telemetry-form.md) | Medium | Companion telemetry | OpenHop Core | CMD_SEND_TELEMETRY_REQ rejects MeshCore's self-telemetry form |
 | 🔴 [BUG-084](findings/BUG-084-index-less-cmd-get-channel-emits-a-multi-frame-dump-absent-from-meshcore.md) | Medium | Companion channel protocol | OpenHop Core | Index-less CMD_GET_CHANNEL emits a multi-frame dump absent from MeshCore |
 | 🔴 [BUG-085](findings/BUG-085-cmd-send-raw-packet-discards-the-requested-transmit-priority.md) | Medium | Companion raw transmission | OpenHop Core | CMD_SEND_RAW_PACKET discards the requested transmit priority |
@@ -86,19 +91,16 @@ Focused runtime reproductions are recorded in [REPRODUCTION-CHECKS.md](docs/REPR
 
 ## Intentional divergences
 
-The report below remains part of the numbered audit history but is not counted as an active defect. The maintainer has confirmed that the different policy is deliberate and still under data-driven evaluation.
+There are currently no numbered reports in this category. BUG-023 was previously kept here while routing-policy data was evaluated, but the current Core and Repeater snapshots now implement MeshCore’s reception-quality flood hold and the report has moved to the fixed archive.
 
-| Finding | Classification | Area | Components | Summary |
-|---|---|---|---|---|
-| ⚪ [BUG-023](archive/intentional/findings/BUG-023-flood-packets-bypass-meshcore-s-reception-quality-delay.md) | Intentional / under evaluation | Radio receive scheduling | OpenHop Core, OpenHop Repeater | Reception-quality scoring is observational and deliberately not yet connected to flood routing |
+General accepted host-side differences remain documented in [Intentional differences and non-findings](docs/INTENTIONAL-DIFFERENCES.md).
 
 ## Archived findings
-
-The reports below remain available as historical evidence, but their audited defect is fully fixed in the supplied snapshots. Their implementation sketches have also been moved to `archive/patches/`. Intentional divergences are archived separately under `archive/intentional/` and are not included in this fixed table.
 
 | Finding | Severity | Area | Components | Summary |
 |---|---|---|---|---|
 | ✅ [BUG-001](archive/findings/BUG-001-advert-application-data-exceeds-the-meshcore-limit.md) | Medium | Packet format | OpenHop Core | Advert application data exceeds the MeshCore limit |
+| ✅ [BUG-002](archive/findings/BUG-002-packet-payload-limit-is-larger-than-meshcore-s-wire-limit.md) | Medium | Packet format | OpenHop Core | Packet payload limit is larger than MeshCore's wire limit |
 | ✅ [BUG-003](archive/findings/BUG-003-malformed-advert-optional-fields-are-accepted-and-misaligned.md) | Medium | Advert parsing | OpenHop Core | Malformed advert optional fields are accepted and misaligned |
 | ✅ [BUG-004](archive/findings/BUG-004-invalid-utf-8-advert-names-discard-otherwise-valid-adverts.md) | Low | Advert parsing | OpenHop Core | Invalid UTF-8 advert names discard otherwise valid adverts |
 | ✅ [BUG-005](archive/findings/BUG-005-advert-names-are-trimmed-during-parsing.md) | Low | Advert name parsing | OpenHop Core | Advert names are trimmed during parsing |
@@ -118,6 +120,7 @@ The reports below remain available as historical evidence, but their audited def
 | ✅ [BUG-019](archive/findings/BUG-019-synchronous-text-sends-wait-for-the-wrong-ack-identifier.md) | High | ACK correlation | OpenHop Core | Synchronous text sends wait for the wrong ACK identifier |
 | ✅ [BUG-020](archive/findings/BUG-020-path-ack-decryption-tries-only-one-colliding-contact.md) | Medium | PATH and ACK parsing | OpenHop Core | PATH ACK decryption tries only one colliding contact |
 | ✅ [BUG-021](archive/findings/BUG-021-pending-ack-storage-is-an-unbounded-time-set-with-silent-saturation.md) | Low | ACK state | OpenHop Core | Pending ACK storage is an unbounded-time set with silent saturation |
+| ✅ [BUG-023](archive/findings/BUG-023-flood-packets-bypass-meshcore-s-reception-quality-delay.md) | Medium | Radio receive scheduling | OpenHop Core, OpenHop Repeater | Flood packets bypass MeshCore's reception-quality delay |
 | ✅ [BUG-024](archive/findings/BUG-024-server-side-req-replay-protection-is-absent.md) | High | Server-side REQ security | OpenHop Core | Server-side REQ replay protection is absent |
 | ✅ [BUG-025](archive/findings/BUG-025-response-waiters-are-keyed-by-a-one-byte-contact-prefix.md) | Medium | Request/response correlation | OpenHop Core | Response waiters are keyed by a one-byte contact prefix |
 | ✅ [BUG-026](archive/findings/BUG-026-path-discovery-can-remain-direct-after-the-contact-is-forced-to-flood.md) | High | Path discovery | OpenHop Core | Path discovery can remain direct after the contact is forced to flood |
@@ -142,6 +145,7 @@ The reports below remain available as historical evidence, but their audited def
 | ✅ [BUG-045](archive/findings/BUG-045-login-status-and-telemetry-commands-report-sent-before-attempting-the-send.md) | Medium | Companion command responses | OpenHop Core | Login, status, and telemetry commands report SENT before attempting the send |
 | ✅ [BUG-046](archive/findings/BUG-046-companion-send-failures-use-the-wrong-error-classes.md) | Low | Companion command responses | OpenHop Core | Companion send failures use the wrong error classes |
 | ✅ [BUG-047](archive/findings/BUG-047-short-set-other-params-frames-reset-fields-they-should-preserve.md) | Medium | Companion preferences | OpenHop Core | Short SET_OTHER_PARAMS frames reset fields they should preserve |
+| ✅ [BUG-048](archive/findings/BUG-048-lora-airtime-calculations-use-incompatible-coding-rate-representations.md) | High | Radio timing | OpenHop Core | LoRa airtime calculations use incompatible coding-rate representations |
 | ✅ [BUG-049](archive/findings/BUG-049-maximum-length-valid-direct-paths-are-rejected.md) | Medium | Core/repeater routing | OpenHop Core, OpenHop Repeater | Maximum-length valid direct paths are rejected |
 | ✅ [BUG-050](archive/findings/BUG-050-transport-flood-and-direct-routes-use-incorrect-retransmit-delays.md) | High | Repeater timing | OpenHop Repeater | Transport flood and direct routes use incorrect retransmit delays |
 | ✅ [BUG-051](archive/findings/BUG-051-loop-thresholds-ignore-path-hash-width.md) | Low | Repeater loop detection | OpenHop Repeater | Loop thresholds ignore path-hash width |
@@ -152,17 +156,20 @@ The reports below remain available as historical evidence, but their audited def
 | ✅ [BUG-057](archive/findings/BUG-057-pathhelper-treats-encoded-path-len-as-a-byte-count.md) | High | Repeater PATH parsing | OpenHop Repeater | PathHelper treats encoded path_len as a byte count |
 | ✅ [BUG-058](archive/findings/BUG-058-a-locally-authenticated-path-packet-is-still-forwarded.md) | Medium | Repeater PATH routing | OpenHop Repeater | A locally authenticated PATH packet is still forwarded |
 | ✅ [BUG-059](archive/findings/BUG-059-local-one-byte-identity-collisions-overwrite-routing-and-persistence-state.md) | High | Repeater multi-identity lifecycle | OpenHop Repeater | Local one-byte identity collisions overwrite routing and persistence state |
+| ✅ [BUG-060](archive/findings/BUG-060-the-sqlite-queue-loses-binary-payload-signed-sender-and-signal-metadata.md) | High | Repeater companion persistence | OpenHop Repeater | The SQLite queue loses binary payload, signed sender, and signal metadata |
 | ✅ [BUG-061](archive/findings/BUG-061-grp-data-and-raw-custom-are-not-delivered-to-companion-bridges.md) | High | Repeater companion packet routing | OpenHop Repeater | GRP_DATA and RAW_CUSTOM are not delivered to companion bridges |
 | ✅ [BUG-062](archive/findings/BUG-062-payload-handlers-run-before-a-direct-packet-reaches-its-final-destination.md) | High | Repeater routing order | OpenHop Repeater | Payload handlers run before a direct packet reaches its final destination |
 | ✅ [BUG-063](archive/findings/BUG-063-preloaded-sqlite-messages-are-delivered-twice-after-restart.md) | Medium | Repeater companion persistence | OpenHop Repeater | Preloaded SQLite messages are delivered twice after restart |
 
 ## Supporting documents
 
+- [Review of the new commit ranges](docs/NEW-COMMITS-REVIEW.md)
 - [Deep differential audit report](docs/DEEP-DIFFERENTIAL-AUDIT.md)
 - [File-by-file review matrix](docs/FILE-REVIEW-MATRIX.md)
 - [Intentional differences and non-findings](docs/INTENTIONAL-DIFFERENCES.md)
 - [Claim verification](docs/CLAIM-VERIFICATION.md)
 - [Verification notes](docs/VERIFICATION-NOTES.md)
+- [Targeted runtime reproductions](docs/REPRODUCTION-CHECKS.md)
 - [Archived findings guide](archive/README.md)
 - [Active patch-sketch disclaimer](patches/README.md)
 
@@ -171,6 +178,6 @@ The reports below remain available as historical evidence, but their audited def
 - **✅ Fully fixed:** the originally reported mismatch is absent and no regression was found.
 - **🟡 Partially fixed:** meaningful corrective work exists, but at least one interoperability path remains incomplete.
 - **🔴 Not fixed:** the mismatch remains reproducible from the supplied source.
-- **⚪ Intentional divergence:** the behavior differs deliberately and is not classified as a defect under the current maintainer decision.
+- **⚪ Intentional divergence:** reserved for a deliberate behavior difference that is not classified as a defect. No numbered report currently has this status.
 
 All patch files are LLM-generated implementation sketches. They are not ready-to-apply changes and must be independently rewritten, tested and reviewed.

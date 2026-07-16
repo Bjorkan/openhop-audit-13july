@@ -1,19 +1,19 @@
 # BUG-060 — The SQLite queue loses binary payload, signed sender, and signal metadata
 
-[← Active finding list](../README.md#active-findings)
+[← Archived finding list](../README.md#archived-findings)
 
 | Field | Value |
 |---|---|
 | Severity | **High** |
 | Area | Repeater companion persistence |
 | Affected components | OpenHop Repeater |
-| Status | Confirmed from the supplied source snapshots |
+| Status | Fully fixed in the current supplied snapshots |
 
 ## TL;DR
 
 The frame-server persistence hook moves every message from the in-memory queue to SQLite. The table and reconstruction retain only basic fields and omit `snr`, `rssi`, `sender_prefix`, `channel_data_type`, and `channel_data_payload`. To fix it, migrate `companion_messages` with BLOB and numeric columns for every `QueuedMessage` field, write and read them atomically in push, pop, and load, and reconstruct the full model.
 
-**Current status: 🟡 Partially fixed.** Core now carries direct-message, channel-text, and channel-data metadata in typed event objects, including signal values, sender prefix, path length, binary data type, and binary payload. Repeater persistence still stores only the basic message fields plus `sender_prefix` and omits `snr`, `rssi`, `channel_data_type`, and `channel_data_payload` from its schema and load/pop queries, so those values are still lost whenever the frame-server hook moves a message to SQLite; see [the complete Core event data](https://github.com/openhop-dev/openhop_core/blob/9355d08e21423886a17979c0d8defb891f5d9d72/src/openhop_core/companion/models.py#L190-L240) and [the incomplete SQLite projection](https://github.com/openhop-dev/openhop_repeater/blob/6aafa7fe991b5b3199b18149f84417f8522d94b2/repeater/data_acquisition/sqlite_handler.py#L3323-L3346). The remaining partial state is verified at Core functional commit [`9355d08`](https://github.com/openhop-dev/openhop_core/commit/9355d08e21423886a17979c0d8defb891f5d9d72) and Repeater merge commit [`6aafa7f`](https://github.com/openhop-dev/openhop_repeater/commit/6aafa7fe991b5b3199b18149f84417f8522d94b2). Rechecked against the supplied Core snapshot [`9ea7269`](https://github.com/openhop-dev/openhop_core/commit/9ea7269a7e7e903fe433b1f952a4026fe3dcc81b), which is a version-only bump after the audited functional commit [`9355d08`](https://github.com/openhop-dev/openhop_core/commit/9355d08e21423886a17979c0d8defb891f5d9d72), and the supplied Repeater snapshot [`6aafa7f`](https://github.com/openhop-dev/openhop_repeater/commit/6aafa7fe991b5b3199b18149f84417f8522d94b2); no regression was found.
+**Current status: ✅ Fully fixed.** Repeater migration 12 and all companion-message insert/load/pop paths now preserve `sender_prefix`, SNR, RSSI, channel-data type, and the exact binary channel-data payload. Rehydration reconstructs the complete `QueuedMessage`, and FIFO ordering now uses insertion IDs rather than wall-clock time; see [`sqlite_handler.py` L443–L449](https://github.com/openhop-dev/openhop_repeater/blob/dd6dfce9e89fab76967d91e202d8e47217c30474/repeater/data_acquisition/sqlite_handler.py#L443-L449) and [`sqlite_handler.py` L3489–L3642](https://github.com/openhop-dev/openhop_repeater/blob/dd6dfce9e89fab76967d91e202d8e47217c30474/repeater/data_acquisition/sqlite_handler.py#L3489-L3642). Dedicated persistence tests and the full Repeater suite pass at [`dd6dfce`](https://github.com/openhop-dev/openhop_repeater/commit/dd6dfce9e89fab76967d91e202d8e47217c30474); Core event objects remain complete at [`41b6201`](https://github.com/openhop-dev/openhop_core/commit/41b6201ea2e3cb9b8468b0eb80c9e22fdad4a6c8).
 
 ## What happens
 

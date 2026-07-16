@@ -2,39 +2,44 @@
 
 ## Source snapshots
 
-- Core: `9ea7269a7e7e903fe433b1f952a4026fe3dcc81b` (`1.1.3.dev6`), with only a version bump after functional commit `9355d08e21423886a17979c0d8defb891f5d9d72`.
-- Repeater: `6aafa7fe991b5b3199b18149f84417f8522d94b2`, from the supplied ZIP.
-- MeshCore: supplied `v1.16.0` source snapshot.
+- Core: `41b6201ea2e3cb9b8468b0eb80c9e22fdad4a6c8` (`fix/all-the-things-core` supplied ZIP), 8 commits after `9ea7269a7e7e903fe433b1f952a4026fe3dcc81b`.
+- Repeater: `dd6dfce9e89fab76967d91e202d8e47217c30474` (`fix/all-the-things` supplied ZIP), 11 commits after `6aafa7fe991b5b3199b18149f84417f8522d94b2`.
+- MeshCore: unchanged supplied `v1.16.0` source snapshot.
 
-Later online Repeater commits were deliberately excluded from the audit result because the user supplied and identified the Repeater ZIP as unchanged.
+## Test commands and results
 
-## Test commands
-
-Core and Repeater test suites were run after installing their declared test/runtime dependencies. Logs from the working audit environment reported:
+Core and Repeater were installed into an isolated virtual environment and run with their complete collected suites:
 
 ```text
-Core: 1110 passed
-Repeater: 1136 passed, 20 subtests passed
+Core: 1182 passed in 24.18s
+Repeater: 1193 passed, 20 subtests passed in 10.59s
 ```
 
-## Static checks
+Changed-path suites were also run independently:
 
-- Compared 113 shared companion command constants numerically.
-- Compared packet payload type, route, path-mode, size and crypto constants.
-- Indexed 1,468 Core symbols and 1,153 Repeater symbols.
-- Traced handler registration and fall-through paths.
-- Reviewed all TODO/placeholder and broad-exception sites for compatibility relevance.
-- Rechecked every previously fixed status for a regression in the supplied code.
+```text
+Core targeted: 259 passed in 2.77s
+Repeater targeted: 440 passed in 2.06s
+```
 
-## Interpretation
+The Repeater suite emits seven warnings because synchronous neighbour-link tests carry an asyncio marker. No test failed.
 
-A green test suite confirms internal expectations, not wire parity. Findings were retained where the current tests encode OpenHop behavior that differs from MeshCore or omit the affected path.
+## Commit-delta method
 
-## Deeper follow-up
+- Compared every changed source and test file against the prior supplied snapshots.
+- Mapped changed files to all active and archived findings that cite or transitively depend on them.
+- Re-read the changed control flow against the same official MeshCore reference files.
+- Re-ran complete suites and focused changed-path suites.
+- Rechecked unchanged active findings where shared packet, timing, dispatcher, radio or persistence primitives changed.
+- Rechecked every archived correction for regression.
 
-- Rechecked the complete 317-file review matrix after the first full differential pass.
-- Added BUG-081 through BUG-100 from companion, KISS, TRACE, room-server and authenticated REQ paths.
-- Reclassified BUG-023 as an intentional policy divergence after the maintainer clarification; it is not counted as fixed or active.
-- Executed 21 focused deterministic assertions covering the 20 newly added reports; BUG-088 has two independent reproductions.
-- Re-ran the complete suites: Core collected and passed 1,110 tests; Repeater passed 1,136 tests and 20 subtests.
-- No source code in the supplied projects was modified.
+## Outcome
+
+- BUG-002, BUG-023, BUG-048 and BUG-060 moved to the fixed archive.
+- BUG-081 and BUG-082 moved from red to partial.
+- BUG-022 and BUG-054 remain partial.
+- 35 findings remain not fixed.
+- No new numbered finding was established by the new commit ranges.
+- No archived correction regressed.
+
+Passing tests confirm internal consistency but do not by themselves prove wire parity; active reports remain where direct source comparison still establishes a mismatch.
