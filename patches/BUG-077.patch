@@ -1,0 +1,11 @@
+# BUG-077: Standalone Core lacks MeshCore’s rolling transmit-airtime budget
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/node/dispatcher.py b/src/openhop_core/node/dispatcher.py
+@@
++        await self._airtime_budget.wait_until_available(packet)
+         success = await self.radio.send(packet.write_to())
++        if success:
++            self._airtime_budget.debit(packet)

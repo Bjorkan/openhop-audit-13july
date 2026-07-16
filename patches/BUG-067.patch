@@ -1,0 +1,9 @@
+# BUG-067: Advert timestamps share the global unique-request clock and can run into the future
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/protocol/packet_builder.py b/src/openhop_core/protocol/packet_builder.py
+@@
+-        timestamp = PacketBuilder._get_timestamp()
++        timestamp = int(time.time()) & 0xFFFFFFFF

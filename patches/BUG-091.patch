@@ -1,0 +1,12 @@
+# BUG-091: Room-server pushes replace the post timestamp and omit retry-attempt entropy
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/repeater/handler_helpers/room_server.py b/repeater/handler_helpers/room_server.py
+@@
+-            timestamp = int(time.time())
+-            flags = TXT_TYPE_SIGNED_PLAIN << 2
++            timestamp = int(post["post_timestamp"])
++            attempt = secrets.randbits(8)
++            flags = (TXT_TYPE_SIGNED_PLAIN << 2) | (attempt & 0x03)

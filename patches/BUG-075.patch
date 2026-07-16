@@ -1,0 +1,10 @@
+# BUG-075: Outbound packets are not recorded in the dispatcher seen table
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/node/dispatcher.py b/src/openhop_core/node/dispatcher.py
+@@
+         raw = packet.write_to()
++        self.packet_filter.track_packet(packet.calculate_packet_hash().hex()[:16])
+         success = await self.radio.send(raw)

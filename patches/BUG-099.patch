@@ -1,0 +1,27 @@
+# BUG-099: Path-discovery pushes replace encoded path lengths with raw byte counts
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/node/handlers/protocol_response.py b/src/openhop_core/node/handlers/protocol_response.py
+@@
+-                        path_info = (out_path, in_path, matched_contact_pubkey)
++                        in_path_len = pkt.path_len
++                        path_info = (
++                            (path_len_byte, out_path),
++                            (in_path_len, in_path),
++                            matched_contact_pubkey,
++                        )
+
+diff --git a/src/openhop_core/companion/frame_server/push.py b/src/openhop_core/companion/frame_server/push.py
+@@
+-    def _on_path_discovery_response(self, tag_bytes, contact_pubkey, out_path, in_path):
++    def _on_path_discovery_response(self, tag_bytes, contact_pubkey, out_path_info, in_path_info):
++        out_path_len, out_path = out_path_info
++        in_path_len, in_path = in_path_info
+@@
+-            + bytes([len(out_path)])
++            + bytes([out_path_len])
+@@
+-            + bytes([len(in_path)])
++            + bytes([in_path_len])

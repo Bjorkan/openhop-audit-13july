@@ -1,0 +1,21 @@
+# BUG-087: Short companion commands are accepted and can silently mutate device state
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/companion/frame_server/commands_device.py b/src/openhop_core/companion/frame_server/commands_device.py
+@@
+     async def _cmd_set_advert_name(self, data: bytes) -> None:
++        if len(data) < 1:
++            self._write_err(ERR_CODE_UNSUPPORTED_CMD)
++            return
+@@
+     async def _cmd_get_stats(self, data: bytes) -> None:
++        if len(data) < 1:
++            self._write_err(ERR_CODE_UNSUPPORTED_CMD)
++            return
+@@
+     async def _cmd_set_flood_scope(self, data: bytes) -> None:
++        if len(data) < 1:
++            self._write_err(ERR_CODE_UNSUPPORTED_CMD)
++            return

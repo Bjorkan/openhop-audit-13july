@@ -1,0 +1,10 @@
+# BUG-064: The exported cipher MAC size is 32 bytes instead of 2
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/protocol/constants.py b/src/openhop_core/protocol/constants.py
+@@
+-CIPHER_MAC_SIZE = 32  # SHA-256 HMAC
++CIPHER_MAC_SIZE = 2  # MeshCore V1 wire MAC truncation
++HMAC_DIGEST_SIZE = 32  # Full SHA-256 digest, when needed internally

@@ -1,0 +1,10 @@
+# BUG-078: Companion node names are limited by characters instead of the 31-byte field
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/companion/base_config.py b/src/openhop_core/companion/base_config.py
+@@
+-        self.prefs.node_name = name[:31]
++        raw = name.encode("utf-8")[:31]
++        self.prefs.node_name = raw.decode("utf-8", errors="ignore")

@@ -1,0 +1,11 @@
+# BUG-074: CMD_SEND_TXT_MSG accepts reserved text-type values
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/companion/frame_server/commands_messaging.py b/src/openhop_core/companion/frame_server/commands_messaging.py
+@@
+         txt_type = data[0]
++        if txt_type not in (TXT_TYPE_PLAIN, TXT_TYPE_CLI_DATA):
++            await self._send_error(ERR_CODE_UNSUPPORTED)
++            return

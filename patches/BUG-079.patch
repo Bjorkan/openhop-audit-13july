@@ -1,0 +1,15 @@
+# BUG-079: Exposed repeater CLI maintenance commands remain no-op stubs
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/repeater/handler_helpers/mesh_cli.py b/repeater/handler_helpers/mesh_cli.py
+@@
+     def _cmd_clear_stats(self):
+-        return "Not implemented"
++        self.repeater.reset_runtime_stats()
++        return "OK"
+@@
+-        return "Temporary radio settings are not implemented"
++        self.repeater.apply_temporary_radio_settings(freq, bw, sf, cr)
++        return "OK"

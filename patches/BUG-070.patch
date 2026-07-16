@@ -1,0 +1,9 @@
+# BUG-070: Identity addresses hash the public key instead of using its prefix
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/protocol/identity.py b/src/openhop_core/protocol/identity.py
+@@
+-        return CryptoUtils.sha256(self.get_public_key())[:1]
++        return self.get_public_key()[:1]

@@ -1,0 +1,45 @@
+# BUG-076: Concurrent receive tasks race replay state and reorder protocol handling
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/node/handlers/protocol_request.py b/src/openhop_core/node/handlers/protocol_request.py
+@@
++import asyncio
+@@
+ class ProtocolRequestHandler(...):
+@@
++        self._client_request_locks: dict[bytes, asyncio.Lock] = {}
+@@
+-            last_ts = self._get_last_req_ts(client)
+-            if timestamp <= last_ts:
+-                ...
+-
+-            response_data = await self._handle_request(client, timestamp, req_type, req_data)
+-
+-            if not response_data:
+-                return HandlerResult.consumed()
+-
+-            self._advance_client_watermark(client, timestamp)
++            client_key = self._client_pubkey(client)
++            if client_key is None:
++                return HandlerResult.consumed()
++            lock = self._client_request_locks.setdefault(client_key, asyncio.Lock())
++            async with lock:
++                last_ts = self._get_last_req_ts(client)
++                if timestamp <= last_ts:
++                    return HandlerResult.consumed()
++
++                response_data = await self._handle_request(
++                    client, timestamp, req_type, req_data
++                )
++                if not response_data:
++                    return HandlerResult.consumed()
++
++                # Preserve monotonicity even if another state owner advances it.
++                self._advance_client_watermark(
++                    client, max(timestamp, self._get_last_req_ts(client))
++                )
+             return HandlerResult.consumed(
+                 self._build_response(packet, client, response_data, shared_secret)
+             )

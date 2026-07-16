@@ -1,0 +1,19 @@
+# BUG-088: KISS signal-report negotiation can stall all received packet delivery
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/hardware/kiss_modem_wrapper.py b/src/openhop_core/hardware/kiss_modem_wrapper.py
+@@
+         with self._command_lock:
+             expected = sub_cmd | 0x80
+             acceptable = {expected, HW_RESP_ERROR}
++            if sub_cmd == HW_CMD_SET_SIGNAL_REPORT:
++                acceptable.add(HW_RESP_SIGNAL_REPORT)
+@@
+         if cmd == CMD_DATA:
+-            self._pending_rx_queue.append(payload)
++            if self._signal_report_enabled:
++                self._pending_rx_queue.append(payload)
++            else:
++                self._dispatch_rx_callback(payload, -999, -999.0)

@@ -1,0 +1,17 @@
+# BUG-083: CMD_SEND_TELEMETRY_REQ rejects MeshCore's self-telemetry form
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/companion/frame_server/commands_messaging.py b/src/openhop_core/companion/frame_server/commands_messaging.py
+@@
+     async def _cmd_send_telemetry_req(self, data: bytes) -> None:
++        if len(data) == 3:
++            lpp = await self.bridge.get_local_telemetry()
++            self._write_frame(
++                bytes([PUSH_CODE_TELEMETRY_RESPONSE, 0])
++                + self.bridge.get_public_key()[:6]
++                + lpp
++            )
++            return
+         if len(data) < 3 + PUB_KEY_SIZE:

@@ -1,0 +1,12 @@
+# BUG-071: Repeater status hardcodes TX queue depth and error events to zero
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/repeater/handler_helpers/protocol_request.py b/repeater/handler_helpers/protocol_request.py
+@@
+-            0,  # curr_tx_queue_len (TODO)
++            self.packet_router.current_queue_depth(),
+@@
+-            0,  # err_events
++            self.error_flags & 0xFFFF,

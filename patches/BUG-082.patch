@@ -1,0 +1,12 @@
+# BUG-082: CMD_SET_RADIO_TX_POWER ignores the advertised hardware limit
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/companion/frame_server/commands_device.py b/src/openhop_core/companion/frame_server/commands_device.py
+@@
+-        if power < -9 or power >= 30:
++        max_power = int(self.bridge.get_max_tx_power_dbm())
++        if power < -9 or power > max_power:
+             self._write_err(ERR_CODE_ILLEGAL_ARG)
+             return

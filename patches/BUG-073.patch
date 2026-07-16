@@ -1,0 +1,13 @@
+# BUG-073: SELF_INFO omits the configured environment telemetry bits
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/companion/frame_server/commands_device.py b/src/openhop_core/companion/frame_server/commands_device.py
+@@
+                 [
+                     getattr(prefs, "telemetry_mode_base", 0)
+                     | (getattr(prefs, "telemetry_mode_location", 0) << 2)
++                    | (getattr(prefs, "telemetry_mode_environment", 0) << 4)
+                 ]
+             )

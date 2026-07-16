@@ -1,0 +1,13 @@
+# BUG-098: Protocol level 13 is reported while reboot, device-PIN and factory-reset commands are absent
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/companion/frame_server/server.py b/src/openhop_core/companion/frame_server/server.py
+@@
++            CMD_REBOOT: self._cmd_reboot,
++            CMD_SET_DEVICE_PIN: self._cmd_set_device_pin,
++            CMD_FACTORY_RESET: self._cmd_factory_reset,
+
+# Add explicit, injected policy callbacks. Do not implement destructive commands
+# as unconditional process or filesystem operations in the reusable Core layer.

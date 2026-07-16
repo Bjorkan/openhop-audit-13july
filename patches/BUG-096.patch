@@ -1,0 +1,11 @@
+# BUG-096: CMD_SEND_CONTROL_DATA rejects MeshCore's minimum one-byte control payload
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/companion/frame_server/commands_messaging.py b/src/openhop_core/companion/frame_server/commands_messaging.py
+@@
+-        if len(data) < 2:
++        if len(data) < 1:
+             self._write_err(ERR_CODE_ILLEGAL_ARG)
+             return

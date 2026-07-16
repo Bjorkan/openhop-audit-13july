@@ -1,0 +1,9 @@
+# BUG-069: HAS_CONNECTION and GET_TUNING_PARAMS are advertised but unimplemented
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/companion/frame_server/server.py b/src/openhop_core/companion/frame_server/server.py
+@@
++            CMD_GET_TUNING_PARAMS: self._cmd_get_tuning_params,
++            CMD_HAS_CONNECTION: self._cmd_has_connection,

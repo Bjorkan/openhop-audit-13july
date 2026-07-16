@@ -1,0 +1,22 @@
+PASS BUG-081: 100 MHz returned OK; set_radio_params args=(100000000, 125000, 7, 5); client_repeat=0
+PASS BUG-082: 22 dBm accepted although backend maximum is 14 dBm
+PASS BUG-083: self telemetry emitted 0106
+PASS BUG-084: empty GET_CHANNEL emitted 40 CHANNEL_INFO frames
+PASS BUG-087: empty SET_ADVERT_NAME cleared name and empty SET_FLOOD_SCOPE reset scope, both OK
+PASS BUG-089: 32-byte SET_CHANNEL secret accepted and stored
+PASS BUG-090: GET_CUSTOM_VARS serialized 280 data bytes after a 140-character slice
+PASS BUG-095: 12-byte handler payload sent an empty direct message instead of rejecting the missing text byte
+PASS BUG-096: single-byte 0x80 control payload rejected as ILLEGAL_ARG
+PASS BUG-097: five-byte raw-data handler payload rejected before its path-aware minimum check
+PASS BUG-098: FIRMWARE_VER_CODE 13 server handler map omits command codes [19, 37, 51]
+PASS BUG-099: two two-byte-hop paths were emitted with raw byte-count length fields 4 and 4, not encoded 0x42
+PASS BUG-086: 2-byte path uses 4 bytes for timeout (5000 ms) and one-byte suffix match=True
+PASS BUG-088: official 0x9A response remained unmatched for SET_SIGNAL_REPORT
+PASS BUG-088: DATA queued and not delivered without a following RX_META frame
+PASS BUG-091: wire timestamp=2000 instead of stored 1234; attempt bits=0
+PASS BUG-092: author sync_since advanced to new post timestamp 2000, which excludes older pending posts
+PASS BUG-100: GlobalRateLimiter.acquire returned with its lock already released, so room sends are not globally serialized
+PASS BUG-085: send_raw_packet documents priority as ignored and calls _send_packet without it
+PASS BUG-093: handler map omits request type 0x03
+PASS BUG-094: 626164ff74657874 became 626164efbfbd74657874 through replacement decode/re-encode
+PASS total focused assertions: 21

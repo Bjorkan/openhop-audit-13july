@@ -1,0 +1,27 @@
+# BUG-100: The global room-server rate limiter releases its lock before transmission begins
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/repeater/handler_helpers/room_server.py b/repeater/handler_helpers/room_server.py
+@@
+     async def acquire(self):
+-        async with self.lock:
+-            now = time.time()
++        await self.lock.acquire()
++        now = time.monotonic()
+         time_since_last = now - self.last_release_time
+         if time_since_last < self.min_gap:
+             await asyncio.sleep(self.min_gap - time_since_last)
+@@
+     def release(self):
+-        self.last_release_time = time.time()
++        self.last_release_time = time.monotonic()
++        self.lock.release()
+@@
+-            success = await self.packet_injector(...)
+-            self.global_limiter.release()
++            try:
++                success = await self.packet_injector(...)
++            finally:
++                self.global_limiter.release()

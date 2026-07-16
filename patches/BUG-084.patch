@@ -1,0 +1,17 @@
+# BUG-084: Index-less CMD_GET_CHANNEL emits a multi-frame dump absent from MeshCore
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/companion/frame_server/commands_channels.py b/src/openhop_core/companion/frame_server/commands_channels.py
+@@
+     async def _cmd_get_channel(self, data: bytes) -> None:
+-        get_full_list = len(data) == 0
+-        channel_idx = data[0] if not get_full_list else 0
++        if len(data) < 1:
++            self._write_err(ERR_CODE_ILLEGAL_ARG)
++            return
++        channel_idx = data[0]
+@@
+-        if get_full_list:
+-            ...

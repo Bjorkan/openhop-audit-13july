@@ -1,0 +1,9 @@
+# BUG-065: Reserved payload version 1 is accepted as a supported wire format
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/protocol/constants.py b/src/openhop_core/protocol/constants.py
+@@
+-MAX_SUPPORTED_PAYLOAD_VERSION = PAYLOAD_VER_2
++MAX_SUPPORTED_PAYLOAD_VERSION = PAYLOAD_VER_1

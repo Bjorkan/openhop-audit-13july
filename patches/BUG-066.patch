@@ -1,0 +1,12 @@
+# BUG-066: The generic own-packet filter drops valid packets on one-byte collisions
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/node/dispatcher.py b/src/openhop_core/node/dispatcher.py
+@@
+-        if self._is_own_packet(pkt):
+-            return
++        # Local loopback suppression is performed by exact packet hashes
++        # recorded on successful outbound submission. Payload-specific
++        # handlers may additionally authenticate a sender where defined.

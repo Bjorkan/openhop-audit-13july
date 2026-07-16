@@ -1,0 +1,16 @@
+# BUG-080: Room-server post length uses 160 characters instead of 151 wire bytes
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/repeater/handler_helpers/room_server.py b/repeater/handler_helpers/room_server.py
+@@
+-MAX_MESSAGE_LENGTH = 160
++MAX_MESSAGE_LENGTH_BYTES = 151
+@@
+-        if len(message_text) > MAX_MESSAGE_LENGTH:
+-            message_text = message_text[:MAX_MESSAGE_LENGTH]
++        encoded = message_text.encode("utf-8")
++        if len(encoded) > MAX_MESSAGE_LENGTH_BYTES:
++            encoded = encoded[:MAX_MESSAGE_LENGTH_BYTES]
++            message_text = encoded.decode("utf-8", errors="ignore")

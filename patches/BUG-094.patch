@@ -1,0 +1,20 @@
+# BUG-094: Companion text commands rewrite invalid UTF-8 payload bytes
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/companion/frame_server/commands_messaging.py b/src/openhop_core/companion/frame_server/commands_messaging.py
+@@
+-        text = data[12:].decode("utf-8", errors="replace").rstrip("\x00")
++        text_bytes = data[12:].split(b"\x00", 1)[0]
+@@
+-            text,
++            text_bytes,
+
+diff --git a/src/openhop_core/protocol/packet_builder.py b/src/openhop_core/protocol/packet_builder.py
+@@
+-        message: str,
++        message: bytes | str,
+@@
+-        message_bytes = message.encode("utf-8")
++        message_bytes = message if isinstance(message, bytes) else message.encode("utf-8")

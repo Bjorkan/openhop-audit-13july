@@ -1,0 +1,17 @@
+# BUG-093: The repeater does not implement MeshCore telemetry REQ responses
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/repeater/handler_helpers/protocol_request.py b/repeater/handler_helpers/protocol_request.py
+@@
+ from openhop_core.node.handlers.protocol_request import (
++    REQ_TYPE_GET_TELEMETRY_DATA,
+@@
+         request_handlers = {
+             REQ_TYPE_GET_STATUS: self._handle_get_status,
++            REQ_TYPE_GET_TELEMETRY_DATA: self._handle_get_telemetry_data,
+@@
++    def _handle_get_telemetry_data(self, client, timestamp, req_data):
++        inverse_mask = req_data[0] if req_data else 0
++        return self.telemetry_provider.build_lpp(client, inverse_mask)

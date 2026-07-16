@@ -1,0 +1,18 @@
+# BUG-092: Posting to a room can skip older unsynced messages for the author
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/repeater/handler_helpers/room_server.py b/repeater/handler_helpers/room_server.py
+@@
+-                self.db.upsert_client_sync(
+-                    room_hash=f"0x{self.room_hash:02X}",
+-                    client_pubkey=client_pubkey.hex(),
+-                    sync_since=post_timestamp,
+-                    last_activity=time.time(),
+-                )
++                self.db.upsert_client_sync(
++                    room_hash=f"0x{self.room_hash:02X}",
++                    client_pubkey=client_pubkey.hex(),
++                    last_activity=time.time(),
++                )

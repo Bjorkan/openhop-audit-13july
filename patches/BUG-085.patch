@@ -1,0 +1,11 @@
+# BUG-085: CMD_SEND_RAW_PACKET discards the requested transmit priority
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/companion/base_send.py b/src/openhop_core/companion/base_send.py
+@@
+-            success = await self._send_packet(pkt, wait_for_ack=False)
++            success = await self._send_packet(
++                pkt, wait_for_ack=False, priority=priority
++            )

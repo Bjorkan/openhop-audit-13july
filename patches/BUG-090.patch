@@ -1,0 +1,14 @@
+# BUG-090: CMD_GET_CUSTOM_VARS applies its 140-byte limit before UTF-8 encoding
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/companion/frame_server/commands_device.py b/src/openhop_core/companion/frame_server/commands_device.py
+@@
+-        csv = ",".join(parts)[:140]
+-        self._write_frame(bytes([RESP_CODE_CUSTOM_VARS]) + csv.encode("utf-8", errors="replace"))
++        raw = ",".join(parts).encode("utf-8", errors="replace")[:140]
++        while raw and (raw[-1] & 0xC0) == 0x80:
++            raw = raw[:-1]
++        raw = raw.decode("utf-8", errors="ignore").encode("utf-8")
++        self._write_frame(bytes([RESP_CODE_CUSTOM_VARS]) + raw)

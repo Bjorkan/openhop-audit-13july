@@ -1,0 +1,9 @@
+# BUG-023 historical sketch — no longer recommended
+#
+# This LLM-generated sketch predates the maintainer clarification that the
+# different reception-quality strategy is intentional and under evaluation.
+# It is retained only for audit history and must not be treated as an active fix.
+
+The previous sketch proposed porting MeshCore's delayed inbound queue directly.
+That recommendation has been withdrawn from the active audit because OpenHop is
+intentionally collecting neighbour-link score data before selecting a routing policy.

@@ -1,0 +1,19 @@
+# BUG-081: CMD_SET_RADIO_PARAMS cannot enable client repeat and accepts out-of-range frequencies
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/companion/frame_server/commands_device.py b/src/openhop_core/companion/frame_server/commands_device.py
+@@
+-        if not (100_000 <= freq_khz <= 2_500_000):
++        repeat = data[10] if len(data) > 10 else 0
++        if not (150_000 <= freq_khz <= 2_500_000):
+             self._write_err(ERR_CODE_ILLEGAL_ARG)
+             return
++        if repeat and not self.bridge.is_valid_client_repeat_freq(freq_khz):
++            self._write_err(ERR_CODE_ILLEGAL_ARG)
++            return
+@@
+-        if self.bridge.set_radio_params(freq_khz * 1000, bw, sf, cr):
++        if self.bridge.set_radio_params(freq_khz * 1000, bw, sf, cr, client_repeat=repeat):
+             self._write_ok()

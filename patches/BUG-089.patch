@@ -1,0 +1,17 @@
+# BUG-089: CMD_SET_CHANNEL accepts secret encodings that MeshCore explicitly rejects
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/companion/frame_server/commands_channels.py b/src/openhop_core/companion/frame_server/commands_channels.py
+@@
+-        if len(data) >= 97:
+-            ...
+-        elif len(data) >= 65:
+-            secret = data[33:65]
+-        elif len(data) >= 49:
++        if len(data) >= 65:
++            self._write_err(ERR_CODE_UNSUPPORTED_CMD)
++            return
++        if len(data) >= 49:
+             secret = data[33:49]

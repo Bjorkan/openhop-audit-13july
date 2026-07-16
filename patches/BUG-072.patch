@@ -1,0 +1,10 @@
+# BUG-072: Malformed-frame blacklist storage is permanent and unbounded
+#
+# LLM-generated implementation sketch only. This is not a tested or directly
+# applicable patch. Verify and rewrite it against the current repositories.
+
+diff --git a/src/openhop_core/protocol/packet_filter.py b/src/openhop_core/protocol/packet_filter.py
+@@
+-        self._blacklist = set()
++        self._blacklist = OrderedDict()  # hash -> monotonic expiry
++        self._blacklist_max = 1024
